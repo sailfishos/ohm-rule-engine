@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: librelation
+Description: A simple relation library to expose data to prolog.
+Version: @VERSION@
+Libs: -L${libdir} -lrelation
+Cflags: -I${includedir}
