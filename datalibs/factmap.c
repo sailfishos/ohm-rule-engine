@@ -153,13 +153,17 @@ factmap_update(factmap_t *map)
 
         if ((pattern = ohm_pattern_new(map->key)) == NULL)
             return EIO;
-        
+
+#if 0
+        ohm_fact_store_view_add(map->view, OHM_STRUCTURE(pattern));
+#else
         if ((l = g_slist_prepend(NULL, pattern)) == NULL) {
             g_object_unref(pattern);
             return EIO;
         }
 
         ohm_fact_store_view_set_interested(map->view, l);
+#endif
     }
 
     p    = buf;
