@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdarg.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,6 +23,7 @@
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   collect_predicates(term_t pl_descriptor, int i, void *data);
+static int   collect_result    (term_t pl_retval, void *retval);
 
 
 static char libpl[PATH_MAX];
@@ -159,17 +161,17 @@ load_file(char *path, int foreign)
 
 
 /********************
- * prolog_get_exported
+ * prolog_predicates
  ********************/
-prolog_export_t *
-prolog_get_exported(char *query)
+prolog_predicate_t *
+prolog_predicates(char *query)
 {
     char        *exported   = query ? query : PRED_EXPORTED;
     predicate_t pr_exported = PL_predicate(exported, 1, NULL);
     term_t      pl_predlist = PL_new_term_ref();
 
-    prolog_export_t *predicates;
-    int              npredicate;
+    prolog_predicate_t *predicates;
+    int                 npredicate;
 
     if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_exported, pl_predlist))
         return NULL;
@@ -177,7 +179,7 @@ prolog_get_exported(char *query)
     if ((npredicate = prolog_list_length(pl_predlist)) <= 0)
         return NULL;
 
-    if ((predicates = ALLOC_ARRAY(prolog_export_t, npredicate + 1)) == NULL)
+    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
         return NULL;
     
     if (prolog_walk_list(pl_predlist, collect_predicates, predicates))
@@ -188,18 +190,91 @@ prolog_get_exported(char *query)
 
 
 /********************
+ * prolog_call
+ ********************/
+int
+prolog_call(prolog_predicate_t *p, void *retval, ...)
+{
+    va_list  ap;
+    fid_t    frame;
+    term_t   pl_args, pl_retval;
+    char    *arg;
+    int      i, success;
+
+    
+    frame = PL_open_foreign_frame();
+    
+    pl_args   = PL_new_term_refs(p->arity);
+    pl_retval = pl_args + p->arity - 1;
+
+    va_start(ap, retval);
+    for (i = 0; i < p->arity - 1; i++) {
+        arg = va_arg(ap, char *);
+        PL_put_atom_chars(pl_args + i, arg);
+    }
+    va_end(ap);
+
+    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
+    if (success)
+        if (collect_result(pl_retval, retval))
+            success = FALSE;
+    
+    PL_close_foreign_frame(frame);
+    
+    return success;
+} 
+
+
+/********************
+ * prolog_free_actions
+ ********************/
+void
+prolog_free_actions(char ***actions)
+{
+    int a, p;
+    
+    if (actions) {
+        for (a = 0; actions[a]; a++) {
+            for (p = 0; actions[a][p]; p++)
+                free(actions[a][p]);
+            free(actions[a]);
+        }
+        free(actions);
+    }
+}
+
+
+/********************
+ * prolog_dump_actions
+ ********************/
+void
+prolog_dump_actions(char ***actions)
+{
+    int a, p;
+    
+    if (actions) {
+        for (a = 0; actions[a]; a++) {
+            printf("(%s", actions[a][0]);
+            for (p = 1; actions[a][p]; p++)
+                printf(", %s", actions[a][p]);
+            printf(")\n");
+        }
+    }
+}
+
+
+/********************
  * collect_predicates
  ********************/
-#if 1
 static int
 collect_predicates(term_t pl_descriptor, int i, void *data)
 {
-    prolog_export_t *predicate = ((prolog_export_t *)data) + i;
-    const char      *name;
-    int              arity;
-    predicate_t      pr_predicate;
-    atom_t           slash_name;
-    term_t           pl_module, pl_descr, pl_name, pl_arity;
+    prolog_predicate_t *predicate = ((prolog_predicate_t *)data) + i;
+    const char         *name;
+    int                 arity;
+    predicate_t         pr_predicate;
+    atom_t              slash_name;
+    term_t              pl_module, pl_descr, pl_name, pl_arity;
 
     /*
      * Notes:
@@ -263,73 +338,107 @@ collect_predicates(term_t pl_descriptor, int i, void *data)
 }
 
 
-
-
-#else
+/********************
+ * collect_action
+ ********************/
 static int
-collect_predicates(term_t pl_descriptor, int i, void *data)
+collect_action(term_t pl_param, int i, void *data)
 {
-    prolog_export_t *predicate = ((prolog_export_t *)data) + i;
-    const char      *name;
-    int              arity;
-    predicate_t      pr_predicate;
-    char            *descriptor;
-    atom_t           slash_name;
-    term_t           pl_name, pl_arity;
+    char **action = (char **)data;
+    char  *param;
 
-    /*
-     * Notes:
-     *     Prolog represents the list item bar/3 as /(bar, 3), ie. as
-     *     the functor '/' with arity 2 and arguments 'bar' and '3'.
-     */
-    
-    if (!PL_get_name_arity(pl_descriptor, &slash_name, &arity))
-        return EINVAL;
-    
-    if ((name = PL_atom_chars(slash_name)) == NULL ||
-        (name[0] != '/' || name[1] != '\0' || arity != 2))
+    if (!PL_get_chars(pl_param, &param, CVT_ALL))
         return EINVAL;
 
-#if 0
-    printf("got name %s with arity %d\n", name, arity);
-#endif
-    
-    pl_name  = PL_new_term_refs(2);
-    pl_arity = pl_name + 1;
-    
-    if (!PL_get_arg(1, pl_descriptor, pl_name) ||
-        !PL_get_arg(2, pl_descriptor, pl_arity))
-        return EINVAL;
-    
-    PL_get_chars(pl_name, &name, CVT_ALL);
-    PL_get_integer(pl_arity, &arity);
-    
-    pr_predicate = PL_predicate(name, arity, NULL);
-    
-    predicate->name      = strdup(name);
-    predicate->arity     = arity;
-    predicate->predicate = pr_predicate;
-
-    if (predicate->name == NULL)
+    if ((action[i] = strdup(param)) == NULL)
         return ENOMEM;
     
     return 0;
 }
-#endif
 
 
-
-/*************************
- * prolog_find_predicate
- *************************/
-predicate_t
-prolog_find_predicate(char *module, char *predicate, int arity)
+/********************
+ * collect_actions
+ ********************/
+static int
+collect_actions(term_t item, int i, void *data)
 {
-    /* XXX TODO: there seems not to exist an interface for reliably
-     * detecting whether a given predicate in a given module is defined.
-     * Both PL_pred and PL_predicate create a predicate handle if one
-     * is not found. */
-    return PL_predicate(predicate, arity, module);
+    char ***actions = (char ***)data;
+    char  **action  = NULL;
+    int     length, err;
+
+    if ((length = prolog_list_length(item)) < 0)
+        return EINVAL;
+    
+    if (length > 0) {
+        if ((action = ALLOC_ARRAY(char *, length + 1)) == NULL)
+            return ENOMEM;
+        
+        if ((err = prolog_walk_list(item, collect_action, action)) != 0)
+            return err;
+    }
+    
+    actions[i] = action;
+    return 0;
+}
+
+
+/********************
+ * collect_result
+ ********************/
+static int
+collect_result(term_t pl_retval, void *retval)
+{
+    char     *s;
+    size_t    n;
+    char   ***actions;
+
+    switch (PL_term_type(pl_retval)) {
+        
+    case PL_INTEGER:
+        return !PL_get_integer(pl_retval, (int *)retval);
+
+    case PL_FLOAT:
+        return !PL_get_float(pl_retval, (double *)retval);
+
+    case PL_ATOM:
+        if (!PL_get_atom_chars(pl_retval, &s))
+            return EIO;
+        return (*(char **)retval = strdup(s)) == NULL ? EIO : 0;
+
+    case PL_STRING:
+        if (!PL_get_string_chars(pl_retval, &s, &n))
+            return EIO;
+        return (*(char **)retval = strdup(s)) == NULL ? EIO : 0;
+        
+    case PL_VARIABLE:
+        *(void **)retval = NULL;
+        return 0;
+
+    case PL_TERM:
+        if (!PL_is_list(pl_retval))
+            goto invalid;
+        
+        if ((n = prolog_list_length(pl_retval)) < 0)
+            return EIO;
+
+        if ((actions = ALLOC_ARRAY(char **, n + 1)) == NULL)
+            return ENOMEM;
+        
+        if (prolog_walk_list(pl_retval, collect_actions, actions)) {
+            prolog_free_actions(actions);
+            return EIO;
+        }
+        
+        *(char ****)retval = actions;
+        return 0;
+        
+    invalid:
+    default:
+        printf("cannot handle term of type %d\n", PL_term_type(pl_retval));
+        printf("is_list: %d\n", PL_is_list(pl_retval));
+        return EINVAL;
+    }
 }
 
 

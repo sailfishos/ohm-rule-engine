@@ -26,7 +26,7 @@ typedef struct {
     char        *name;                       /* exported predicate name */
     int          arity;                      /* exported predicate arity */
     predicate_t  predicate;                  /* prolog predicate handle */
-} prolog_export_t;
+} prolog_predicate_t;
 
 
 
@@ -36,7 +36,14 @@ void prolog_exit(void);
 int  prolog_load_extension(char *path);
 int  prolog_load_file     (char *path);
 
-prolog_export_t *prolog_get_exported(char *query);
+prolog_predicate_t *prolog_predicates(char *query);
+int                 prolog_predicate (prolog_predicate_t *p, char *name,
+                                      int arity);
+int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
+
+void prolog_free_actions(char ***actions);
+void prolog_dump_actions(char ***actions);
+
 
 
 int  prolog_query_once(char *predicate, int arity, term_t pl_arguments,
