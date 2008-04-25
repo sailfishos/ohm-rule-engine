@@ -6,7 +6,7 @@ includedir=@includedir@
 Name: libprolog
 Description: Prolog Convenience Library
 Version: @VERSION@
-Requires: swi-prolog
-Libs: -L${libdir} @PROLOG_LDFLAGS@
+#Requires: swi-prolog
+Libs: -L${libdir} -lprolog @PROLOG_LDFLAGS@
 Cflags: -I${includedir} @PROLOG_CFLAGS@
 

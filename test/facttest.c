@@ -42,7 +42,8 @@ main(int argc, char *argv[])
     if ((view = ohm_fact_store_new_view(store, NULL)) == NULL)
         fatal(2, "failed to create view");
   
-    if ((map = factmap_create(store, ACCESSORIES, ACCESSORY_KEY, fields)) == NULL)
+    if ((map = factmap_create(store, ACCESSORIES, ACCESSORY_KEY, fields,
+                              NULL, NULL)) == NULL)
         fatal(3, "failed to create factmap for %s", ACCESSORIES);
   
     factmap_dump(map);

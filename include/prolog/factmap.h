@@ -9,18 +9,24 @@
  * structure to glue the factstore to the prologish relation
  */
 
-typedef struct {
-    OhmFactStore      *store;                    /* fact store */
-    OhmFactStoreView  *view;                     /* fact changesets */
-    char              *key;                      /* key name in factstore */
-    char             **members;                  /* fact fields of interest */
-    int                nmember;                  /* number of fields */
-    relation_t       *relation;                  /* associated relation */
-} factmap_t;
+typedef struct factmap_s factmap_t;
+
+struct factmap_s {
+    OhmFactStore      *store;                         /* fact store */
+    OhmFactStoreView  *view;                          /* fact changesets */
+    char              *key;                           /* factstore key */
+    char             **members;                       /* fields of interest */
+    int                nmember;                       /* number of fields */
+    relation_t       *relation;                       /* associated relation */
+    int             (*filter)(int, char **, void *);  /* optional filter */
+    void             *filter_data;                    /* optional filter data */
+};
+
 
 
 factmap_t *factmap_create (OhmFactStore *store,
-                           char *name, char *factkey, char **members);
+                           char *name, char *factkey, char **members,
+                           int (*filter)(int, char **, void *), void *data);
 void       factmap_destroy(factmap_t *map);
 int        factmap_update (factmap_t *map);
 void       factmap_dump   (factmap_t *map);

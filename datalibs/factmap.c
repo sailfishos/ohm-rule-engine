@@ -15,6 +15,8 @@
                 memset(__ptr, 0, __size);         \
             __ptr; })
 
+#define ALLOC_OBJ(ptr) ((ptr) = ALLOC(typeof(*ptr)))
+
 #define ALLOC_ARR(type, n) ({                     \
             type   *__ptr;                        \
             size_t   __size = (n) * sizeof(type); \
@@ -27,30 +29,38 @@
             typeof(ptr) __ptr;                                          \
             size_t      __size = sizeof(*ptr) * (n);                    \
                                                                         \
-            if ((ptr) == NULL)                                          \
-                (ptr) = ALLOC_ARR(typeof(*ptr), n);                     \
+            if ((ptr) == NULL) {                                        \
+                (__ptr) = ALLOC_ARR(typeof(*ptr), n);                   \
+                ptr = __ptr;                                            \
+            }                                                           \
             else if ((__ptr = realloc(ptr, __size)) != NULL) {          \
                 if ((n) > (o))                                          \
                     memset(__ptr + (o), 0, ((n)-(o)) * sizeof(*ptr));   \
                 ptr = __ptr;                                            \
             }                                                           \
-            ptr; })
+            __ptr; })
                 
 #define FREE(obj) do { if (obj) free(obj); } while (0)
 
-#define STRDUP(s) ({                            \
-        char *__s = s;                          \
-        ((__s) ? strdup(__s) : strdup(""));     \
-        __s; })
+#define STRDUP(s) ({                                    \
+            char *__s = s;                              \
+            __s = ((s) ? strdup(s) : strdup(""));       \
+            __s; })
 
-
+#define DEBUG(fmt, args...) do {                                \
+        int __depth = depth;                                    \
+        while (__depth-- > 0)                                   \
+            printf("    ");                                     \
+        printf("[%s] "fmt"\n", __FUNCTION__, ## args);          \
+    } while (0)
 
 
 /********************
  * factmap_create
  ********************/
 factmap_t *
-factmap_create(OhmFactStore *store, char *name, char *key, char **members)
+factmap_create(OhmFactStore *store, char *name, char *key, char **members,
+               int (*filter)(int, char **, void *), void *filter_data)
 {
     factmap_t *map;
     int        i, arity;
@@ -65,9 +75,11 @@ factmap_create(OhmFactStore *store, char *name, char *key, char **members)
     if ((map = ALLOC(factmap_t)) == NULL)
         return NULL;
 
-    map->store   = store;
-    map->nmember = arity;
- 
+    map->store       = store;
+    map->nmember     = arity;
+    map->filter      = filter;
+    map->filter_data = filter_data;
+
     if ((map->key = STRDUP(key)) == NULL)
         goto fail;
 
@@ -197,8 +209,10 @@ factmap_update(factmap_t *map)
             row[i]  = p;
             p      += n;
         }
-        if (relation_insert(map->relation, row))
-            return EIO;
+        if (map->filter == NULL ||
+            map->filter(map->nmember, row, map->filter_data))
+            if (relation_insert(map->relation, row))
+                return EIO;
     }
     
     if (map->view)
