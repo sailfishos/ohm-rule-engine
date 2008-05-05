@@ -3,12 +3,52 @@
 
 #include <SWI-Prolog.h>
 
-#define ALLOC_ARRAY(type, n) ({                 \
-        type   *__ptr;                          \
-        size_t  __size = sizeof(type) * (n);    \
-        if ((__ptr = malloc(__size)) != NULL)   \
-            memset(__ptr, 0, __size);           \
-        __ptr; })
+#undef ALLOC
+#undef ALLOC_OBJ
+#undef ALLOC_ARR
+#undef REALLOC_ARR
+#undef STRDUP
+#undef FREE
+
+#define ALLOC(type) ({                            \
+            type   *__ptr;                        \
+            size_t  __size = sizeof(type);        \
+                                                  \
+            if ((__ptr = malloc(__size)) != NULL) \
+                memset(__ptr, 0, __size);         \
+            __ptr; })
+
+#define ALLOC_OBJ(ptr) ((ptr) = ALLOC(typeof(*ptr)))
+
+#define ALLOC_ARR(type, n) ({                     \
+            type   *__ptr;                        \
+            size_t   __size = (n) * sizeof(type); \
+                                                  \
+            if ((__ptr = malloc(__size)) != NULL) \
+                memset(__ptr, 0, __size);         \
+            __ptr; })
+
+#define REALLOC_ARR(ptr, o, n) ({                                       \
+            typeof(ptr) __ptr;                                          \
+            size_t      __size = sizeof(*ptr) * (n);                    \
+                                                                        \
+            if ((ptr) == NULL) {                                        \
+                (__ptr) = ALLOC_ARR(typeof(*ptr), n);                   \
+                ptr = __ptr;                                            \
+            }                                                           \
+            else if ((__ptr = realloc(ptr, __size)) != NULL) {          \
+                if ((n) > (o))                                          \
+                    memset(__ptr + (o), 0, ((n)-(o)) * sizeof(*ptr));   \
+                ptr = __ptr;                                            \
+            }                                                           \
+            __ptr; })
+                
+#define FREE(obj) do { if (obj) free(obj); } while (0)
+
+#define STRDUP(s) ({                                    \
+            char *__s = s;                              \
+            __s = ((s) ? strdup(s) : strdup(""));       \
+            __s; })
 
 typedef struct {
     char  *argv0;
@@ -43,6 +83,8 @@ int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
 
 void prolog_free_actions(char ***actions);
 void prolog_dump_actions(char ***actions);
+
+char *prolog_flatten_actions(char ***actions);
 
 
 

@@ -14,6 +14,7 @@
 #  define PATH_MAX 256
 #endif
 
+#define ALLOC_ARRAY ALLOC_ARR
 #define LIBPROLOG     "libprolog.so"
 #define PRED_EXPORTED "exported"
 
@@ -260,6 +261,60 @@ prolog_dump_actions(char ***actions)
             printf(")\n");
         }
     }
+}
+
+
+/********************
+ * prolog_flatten_actions
+ ********************/
+char *
+prolog_flatten_actions(char ***actions)
+{
+#define CHUNK 128
+#define NEED_SPACE(n) do {                                      \
+        if (left < n) {                                         \
+            p -= (int)flattened;                                \
+            if (!REALLOC_ARR(flattened, size, size + CHUNK)) {  \
+                errno = ENOMEM;                                 \
+                free(flattened);                                \
+                return NULL;                                    \
+            }                                                   \
+            p    += (int)flattened;                             \
+            size += CHUNK;                                      \
+            left += CHUNK;                                      \
+        }                                                       \
+    } while (0)
+
+    char **action, *a, *flattened, *p, *t;
+    int    i, j, size, left, n;
+
+    p = flattened = NULL;
+    size = left = 0;
+
+    NEED_SPACE(1);
+    
+    *p++ = '[';
+    left--;
+
+    if (actions != NULL) {
+        for (i = 0; (action = actions[i]) != NULL; i++) {
+            for (j = 0, t = "["; (a = action[j]) != NULL; j++, t = " ") {
+                NEED_SPACE(strlen(a) + strlen(t));
+                n     = snprintf(p, left, "%s%s", t, a);
+                p    += n;
+                left -= n;
+            }
+            NEED_SPACE(1);
+            *p++ = ']';
+            left--;
+        }
+    }
+    
+    NEED_SPACE(2);
+    *p++ = ']';
+    *p   = '\0';
+
+    return flattened;
 }
 
 
