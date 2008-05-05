@@ -80,6 +80,8 @@ prolog_predicate_t *prolog_predicates(char *query);
 int                 prolog_predicate (prolog_predicate_t *p, char *name,
                                       int arity);
 int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
+int                 prolog_callarr   (prolog_predicate_t *p, void *retval,
+                                      void **args, int narg);
 
 void prolog_free_actions(char ***actions);
 void prolog_dump_actions(char ***actions);

@@ -227,6 +227,43 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
 
 
 /********************
+ * prolog_callarr
+ ********************/
+int
+prolog_callarr(prolog_predicate_t *p, void *retval, void **args, int narg)
+{
+    fid_t  frame;
+    term_t pl_args, pl_retval;
+    int    i, success;
+
+    if (narg < p->arity)
+        return FALSE;
+    else if (narg > p->arity) {
+        fprintf(stderr, "WARNING: %s ignoring extra %d parameter%s to %s\n",
+                __FUNCTION__, narg - p->arity, narg - p->arity > 1 ? "s" : "",
+                p->name);
+    }
+    
+    frame = PL_open_foreign_frame();
+    
+    pl_args   = PL_new_term_refs(p->arity);
+    pl_retval = pl_args + p->arity - 1;
+
+    for (i = 0; i < p->arity - 1; i++)
+        PL_put_atom_chars(pl_args + i, (char *)args[i]);
+    
+    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
+    if (success)
+        if (collect_result(pl_retval, retval))
+            success = FALSE;
+    
+    PL_close_foreign_frame(frame);
+    
+    return success;
+} 
+
+
+/********************
  * prolog_free_actions
  ********************/
 void
@@ -457,6 +494,8 @@ collect_result(term_t pl_retval, void *retval)
         return !PL_get_float(pl_retval, (double *)retval);
 
     case PL_ATOM:
+        if (PL_is_list(pl_retval))              /* [] is an atom... */
+            goto list;
         if (!PL_get_atom_chars(pl_retval, &s))
             return EIO;
         return (*(char **)retval = strdup(s)) == NULL ? EIO : 0;
@@ -473,7 +512,7 @@ collect_result(term_t pl_retval, void *retval)
     case PL_TERM:
         if (!PL_is_list(pl_retval))
             goto invalid;
-        
+    list:
         if ((n = prolog_list_length(pl_retval)) < 0)
             return EIO;
 
