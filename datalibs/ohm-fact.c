@@ -851,6 +851,10 @@ void ohm_fact_store_remove (OhmFactStore* self, OhmFact* fact) {
 	if (found != NULL) {
 		facts = g_slist_delete_link (facts, found);
 		g_object_set_qdata (G_OBJECT (self), ohm_structure_get_qname (OHM_STRUCTURE (fact)), ((gpointer*) facts));
+#if 0
+		_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_REMOVED);
+#endif
+
 		ohm_fact_set_fact_store (fact, NULL);
 		g_signal_emit_by_name (G_OBJECT (self), "removed", fact);
 	}
@@ -861,6 +865,7 @@ void ohm_fact_store_update (OhmFactStore* self, OhmFact* fact, GQuark field, GVa
 	g_return_if_fail (OHM_IS_FACT_STORE (self));
 	g_return_if_fail (OHM_IS_FACT (fact));
 	g_signal_emit_by_name (G_OBJECT (self), "updated", fact, field, &(*value));
+	_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_UPDATED);
 }
 
 
