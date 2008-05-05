@@ -91,6 +91,7 @@ AC_CONFIG_FILES([Makefile
 		 datalibs/libset.pc
 		 datalibs/librelation.pc
 		 datalibs/libfactmap.pc
+		 datalibs/libfact.pc
 		 extensions/Makefile
 		 test/Makefile])
 AC_OUTPUT

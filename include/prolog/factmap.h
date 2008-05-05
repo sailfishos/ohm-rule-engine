@@ -23,7 +23,6 @@ struct factmap_s {
 };
 
 
-
 factmap_t *factmap_create (OhmFactStore *store,
                            char *name, char *factkey, char **members,
                            int (*filter)(int, char **, void *), void *data);

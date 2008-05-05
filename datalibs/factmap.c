@@ -243,6 +243,7 @@ factmap_dump(factmap_t *map)
 }
 
 
+
 /* 
  * Local Variables:
  * c-basic-offset: 4

@@ -4,7 +4,8 @@ pkgconfigdir   = ${libdir}/pkgconfig
 pkgconfig_DATA = libprolog.pc \
 	         datalibs/librelation.pc \
 	         datalibs/libset.pc \
-	         datalibs/libfactmap.pc
+	         datalibs/libfactmap.pc \
+	         datalibs/libfact.pc
 
 
 MAINTAINERCLEANFILES = Makefile.in
