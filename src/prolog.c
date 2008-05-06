@@ -17,6 +17,7 @@
 #define ALLOC_ARRAY ALLOC_ARR
 #define LIBPROLOG     "libprolog.so"
 #define PRED_EXPORTED "exported"
+#define OBJECT_NAME   "name"
 
 #define NATIVE  0
 #define FOREIGN 1
@@ -356,6 +357,45 @@ prolog_flatten_actions(char ***actions)
 
 
 /********************
+ * prolog_free_objects
+ ********************/
+void
+prolog_free_objects(char ***objects)
+{
+    int i, p;
+    
+    if (objects) {
+        for (i = 0; objects[i]; i++) {
+            for (p = 0; objects[i][p]; p++)
+                free(objects[i][p]);
+            free(objects[i]);
+        }
+        free(objects);
+    }
+}
+
+
+/********************
+ * prolog_dump_objects
+ ********************/
+void
+prolog_dump_objects(char ***objects)
+{
+    int   i, p;
+    char *t;
+
+    if (objects) {
+        for (i = 0; objects[i]; i++) {
+            printf("{ ");
+            for (p = 0, t = ""; objects[i][p]; p += 2, t = ", ")
+                printf("%s%s:%s", t, objects[i][p], objects[i][p+1]);
+            printf(" }\n");
+        }
+    }
+}
+
+
+/********************
  * collect_predicates
  ********************/
 static int
@@ -476,6 +516,109 @@ collect_actions(term_t item, int i, void *data)
 
 
 /********************
+ * is_action_list
+ ********************/
+int
+is_action_list(term_t list)
+{
+    term_t pl_list, pl_head, pl_action;
+    
+    pl_list   = PL_copy_term_ref(list);
+    pl_head   = PL_new_term_refs(2);
+    pl_action = pl_head + 1;
+
+
+    /*
+     * Notes:
+     *   Action lists are of the form:
+     *     [[action1, arg1, arg2, ...], [action2, arg1, arg2, ...], ...]
+     *
+     *   Object lists are of the form:
+     *     [[name1, [field1, value1], [field2, value2]], ...]
+     *
+     *   Thus we conclude that list is an action list if the second element
+     *   of the first element is not a list.
+     */
+
+    if (!PL_get_head(pl_list, pl_action))            /* get first action */
+        return FALSE;
+    
+    if (!PL_get_list(pl_action, pl_head, pl_list))   /* get tail of action */
+        return FALSE;
+    
+    if (!PL_get_head(pl_list, pl_head))              /* get second element */
+        return FALSE;
+    
+    return !PL_is_list(pl_head);
+}
+
+
+/********************
+ * collect_object
+ ********************/
+static int
+collect_object(term_t item, int i, void *data)
+{
+    char   **object = (char **)data;
+    term_t   pl_field, pl_value;
+    char    *field, *value;
+
+    if (i == 0) {
+        if (!PL_get_chars(item, &field, CVT_ALL))
+            return EINVAL;
+        
+        if ((object[0] = STRDUP(OBJECT_NAME)) == NULL ||
+            (object[1] = STRDUP(field))  == NULL)
+            return ENOMEM;
+    }
+    else {
+        pl_field = PL_new_term_refs(2);
+        pl_value = pl_field + 1;
+        
+        if (!PL_get_list(item, pl_field, pl_value))
+            return EINVAL;
+        if (!PL_get_head(pl_value, pl_value))
+            return EINVAL;
+        if (!PL_get_chars(pl_field, &field, CVT_ALL) ||
+            !PL_get_chars(pl_value, &value, CVT_ALL))
+            return EINVAL;
+            
+        if ((object[2*i  ] = STRDUP(field)) == NULL ||
+            (object[2*i+1] = STRDUP(value)) == NULL)
+            return ENOMEM;
+    }
+
+    return 0;
+}
+    
+
+/********************
+ * collect_objects
+ ********************/
+static int
+collect_objects(term_t item, int i, void *data)
+{
+    char ***objects = (char ***)data;
+    char  **object  = NULL;
+    int      length, err;
+
+    if ((length = prolog_list_length(item)) < 0)
+        return EINVAL;
+    
+    if (length > 0) {
+        if ((object = ALLOC_ARRAY(char *, 2 * length + 1)) == NULL)
+            return ENOMEM;
+        
+        if ((err = prolog_walk_list(item, collect_object, object)) != 0)
+            return err;
+    }
+
+    objects[i] = object;
+    return 0;
+}
+
+
+/********************
  * collect_result
  ********************/
 static int
@@ -483,7 +626,6 @@ collect_result(term_t pl_retval, void *retval)
 {
     char     *s;
     size_t    n;
-    char   ***actions;
 
     switch (PL_term_type(pl_retval)) {
         
@@ -516,16 +658,34 @@ collect_result(term_t pl_retval, void *retval)
         if ((n = prolog_list_length(pl_retval)) < 0)
             return EIO;
 
-        if ((actions = ALLOC_ARRAY(char **, n + 1)) == NULL)
-            return ENOMEM;
-        
-        if (prolog_walk_list(pl_retval, collect_actions, actions)) {
-            prolog_free_actions(actions);
-            return EIO;
+        if (is_action_list(pl_retval)) {
+            char   ***actions;
+
+            if ((actions = ALLOC_ARRAY(char **, n + 1)) == NULL)
+                return ENOMEM;
+            
+            if (prolog_walk_list(pl_retval, collect_actions, actions)) {
+                prolog_free_actions(actions);
+                return EIO;
+            }
+            
+            *(char ****)retval = actions;
+            return 0;
         }
-        
-        *(char ****)retval = actions;
-        return 0;
+        else {
+            char ***objects;
+            
+            if ((objects = ALLOC_ARRAY(char **, n + 1)) == NULL)
+                return ENOMEM;
+            
+            if (prolog_walk_list(pl_retval, collect_objects, objects)) {
+                prolog_free_objects(objects);
+                return EIO;
+            }
+            
+            *(char ****)retval = objects;
+            return 0;
+        }
         
     invalid:
     default:

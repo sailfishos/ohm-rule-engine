@@ -88,6 +88,9 @@ void prolog_dump_actions(char ***actions);
 
 char *prolog_flatten_actions(char ***actions);
 
+void prolog_free_objects(char ***objects);
+void prolog_dump_objects(char ***objects);
+
 
 
 int  prolog_query_once(char *predicate, int arity, term_t pl_arguments,
