@@ -23,16 +23,10 @@ rpms: rmtar $(SPECFILE) $(TARBALL)
 	cp $(TARBALL) $(TMPDIR)/SOURCES && \
 	rpmbuild --define '_topdir $(TMPDIR)' \
 	    -bb $(TMPDIR)/SPECS/$(PACKAGE).spec && \
-	cp $(TMPDIR)/RPMS/$(ARCH)/*.rpm $(TOPDIR)/fedora
-
-srpms: rmtar $(SPECFILE) $(TARBALL)
-	mkdir -p $(TMPDIR)/{BUILD,RPMS,SRPMS,SOURCES,SPECS} && \
-	cp $(SPECFILE) $(TMPDIR)/SPECS && \
-	cp $(TARBALL) $(TMPDIR)/SOURCES && \
 	rpmbuild --define '_topdir $(TMPDIR)' \
 	    -bs $(TMPDIR)/SPECS/$(PACKAGE).spec && \
-	cp $(TMPDIR)/SRPMS/*.src.rpm $(TOPDIR)/fedora
-
+	cp $(TMPDIR)/RPMS/$(ARCH)/*.rpm $(TOPDIR)/fedora
+	cp $(TMPDIR)/SRPMS/*.rpm $(TOPDIR)/fedora
 
 cleanup:
 	rm -fr $(TMPDIR) && \
