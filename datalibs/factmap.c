@@ -148,7 +148,6 @@ factmap_update(factmap_t *map)
     char     buf[map->nmember * 32], *p;
     size_t   left, n;
     
-    relation_reset(map->relation);
 
     /*
      * if we have a view check that for updates
@@ -178,6 +177,8 @@ factmap_update(factmap_t *map)
 #endif
     }
 
+    relation_reset(map->relation);
+    
     p    = buf;
     left = sizeof(buf) - 1;
     for (l = ohm_fact_store_get_facts_by_name(map->store, map->key);
