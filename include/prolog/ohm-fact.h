@@ -193,6 +193,7 @@ OhmFact* ohm_fact_new (const char* name);
 GValue* ohm_fact_get (OhmFact* self, const char* field_name);
 void ohm_fact_set (OhmFact* self, const char* field_name, GValue* value);
 OhmFactStore* ohm_fact_get_fact_store (OhmFact* self);
+GList *ohm_fact_get_fields(OhmFact *self);
 void ohm_fact_set_fact_store (OhmFact* self, OhmFactStore* value);
 GType ohm_fact_get_type (void);
 gboolean ohm_fact_store_insert (OhmFactStore* self, OhmFact* fact);
