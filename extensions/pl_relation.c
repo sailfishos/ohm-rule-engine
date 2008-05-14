@@ -97,8 +97,7 @@ pl_related(term_t pl_name, term_t pl_list, control_t handle)
         if ((r = relation_lookup(name)) == NULL)
             PL_fail;
 
-        if (!PL_is_list(pl_list) ||
-            (arity = list_length(pl_list)) != r->arity)
+        if (!PL_is_list(pl_list) || (arity = list_length(pl_list)) != r->arity)
             PL_fail;
 
         if ((ctx = malloc(sizeof(*ctx))) == NULL)

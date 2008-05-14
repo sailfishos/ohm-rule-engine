@@ -6,6 +6,8 @@
 
 #include <prolog/factmap.h>
 
+#define NEW_OHMFACT_BROKEN
+
 #define ACCESSORIES   "accessories"
 #define ACCESSORY_KEY "com.nokia.policy.accessories"
 #define DEVICE        "device"
@@ -26,9 +28,14 @@ main(int argc, char *argv[])
     OhmFactStore     *store;
     OhmFact          *fact;
     OhmFactStoreView *view;
+#ifndef NEW_OHMFACT_BROKEN
+    OhmFactStoreSimpleView *sv;
+    GValue                 *dev, *state, *d;
+#else
+    GValue                 dev, state, *d;
+#endif
     OhmPatternMatch  *pm;
     OhmPattern       *pattern;
-    GValue            dev, state, *d;
     GSList           *matches, *l;
 
     factmap_t        *map;
@@ -50,7 +57,7 @@ main(int argc, char *argv[])
 
     pattern = ohm_pattern_new(ACCESSORY_KEY);
 
-#if 0
+#ifndef NEW_OHMFACT_BROKEN
     ohm_fact_store_view_add(map->view, OHM_STRUCTURE(pattern));
 #else
     l = g_slist_prepend(NULL, pattern);
@@ -61,8 +68,13 @@ main(int argc, char *argv[])
         fact  = ohm_fact_new(ACCESSORY_KEY);
         dev   = ohm_value_from_string(*acc);
         state = ohm_value_from_int(1);
+#ifndef NEW_OHMFACT_BROKEN
+        ohm_fact_set(fact, DEVICE, dev);
+        ohm_fact_set(fact, STATE, state);
+#else
         ohm_fact_set(fact, DEVICE, &dev);
         ohm_fact_set(fact, STATE, &state);
+#endif
         if (!ohm_fact_store_insert(store, fact))
             fatal(2, "failed to add device %s to fact store", *acc);
 
@@ -82,7 +94,12 @@ main(int argc, char *argv[])
         printf("got accessory %s\n", g_value_get_string(d));
     }
 
+#ifndef NEW_OHMFACT_BROKEN
+    sv = OHM_FACT_STORE_SIMPLE_VIEW(view);
+    matches = ohm_fact_store_change_set_get_matches(sv->change_set);
+#else
     matches = ohm_fact_store_change_set_get_matches(view->change_set);
+#endif
     for (l = matches; l != NULL; l = g_slist_next(l)) {
         if (!OHM_PATTERN_IS_MATCH(l->data))
             fatal(4, "unexpected object type in changeset");

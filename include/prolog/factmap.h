@@ -13,7 +13,7 @@ typedef struct factmap_s factmap_t;
 
 struct factmap_s {
     OhmFactStore      *store;                         /* fact store */
-    OhmFactStoreView  *view;                          /* fact changesets */
+    OhmFactStoreView  *view;                          /* fact store view */
     char              *key;                           /* factstore key */
     char             **members;                       /* fields of interest */
     int                nmember;                       /* number of fields */

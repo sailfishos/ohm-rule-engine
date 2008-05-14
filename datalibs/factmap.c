@@ -6,6 +6,7 @@
 #include <prolog/ohm-fact.h>
 #include <prolog/factmap.h>
 
+#define NEW_OHMFACT_BROKEN
 
 #define ALLOC(type) ({                            \
             type   *__ptr;                        \
@@ -123,7 +124,12 @@ factmap_destroy(factmap_t *map)
     }
 
     if (map->view) {
+#ifndef NEW_OHMFACT_BROKEN
+        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
+        ohm_fact_store_change_set_reset(sv->change_set);
+#else
         ohm_fact_store_change_set_reset(map->view->change_set);
+#endif
         g_object_unref(map->view);
     }
 
@@ -150,22 +156,26 @@ factmap_update(factmap_t *map)
     
 
     /*
-     * if we have a view check that for updates
+     * if we have a pattern check its view for updates
      */
-    
+
     if (map->view != NULL) {
+#ifndef NEW_OHMFACT_BROKEN
+        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
+        updates = ohm_fact_store_change_set_get_matches(sv->change_set);
+#else
         updates = ohm_fact_store_change_set_get_matches(map->view->change_set);
+#endif
         if (updates == NULL)
             return 0;
     }
     else {
         if ((map->view = ohm_fact_store_new_view(map->store, NULL)) == NULL)
             return EIO;
-
         if ((pattern = ohm_pattern_new(map->key)) == NULL)
             return EIO;
 
-#if 0
+#ifndef NEW_OHMFACT_BROKEN
         ohm_fact_store_view_add(map->view, OHM_STRUCTURE(pattern));
 #else
         if ((l = g_slist_prepend(NULL, pattern)) == NULL) {
@@ -216,8 +226,14 @@ factmap_update(factmap_t *map)
                 return EIO;
     }
     
-    if (map->view)
+    if (map->view) {
+#ifndef NEW_OHMFACT_BROKEN
+        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
+        ohm_fact_store_change_set_reset(sv->change_set);
+#else
         ohm_fact_store_change_set_reset(map->view->change_set);
+#endif
+    }
     
     return 0;
 }

@@ -1,5 +1,12 @@
-pkglib_LTLIBRARIES = relation.la set.la
+pkglib_LTLIBRARIES = fact.la relation.la set.la
 pkglibdir          = ${datadir}/prolog/extensions
+
+fact_la_SOURCES = pl_fact.c
+fact_la_CFLAGS  = @PROLOG_CFLAGS@ @GLIB_CFLAGS@
+fact_la_LDFLAGS = -module -avoid-version 			    \
+                 @PROLOG_LDFLAGS@ -L../datalibs/.libs -lfact
+
+fact_la_LIBADD  = @GLIB_LIBS@
 
 relation_la_SOURCES = pl_relation.c
 relation_la_CFLAGS  = @PROLOG_CFLAGS@
