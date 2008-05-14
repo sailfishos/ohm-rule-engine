@@ -18,7 +18,7 @@ static void ohm_structure_real_qset (OhmStructure* self, GQuark field, GValue* v
 static void _ohm_structure_value_to_string_gvalue_transform (GValue* src_value, GValue* dest_value);
 static GObject * ohm_structure_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
 static gpointer ohm_structure_parent_class = NULL;
-static void ohm_structure_dispose (GObject * obj);
+static void ohm_structure_dispose (GObject *obj);
 struct _OhmPatternPrivate {
 	OhmFactStoreView* _view;
 };
@@ -703,6 +703,11 @@ static void ohm_fact_real_qset (OhmStructure* base, GQuark field, GValue* value)
 OhmFactStore* ohm_fact_get_fact_store (OhmFact* self) {
 	g_return_val_if_fail (OHM_IS_FACT (self), NULL);
 	return self->priv->_fact_store;
+}
+
+GList *ohm_fact_get_fields(OhmFact *self) {
+	g_return_val_if_fail (OHM_IS_FACT (self), NULL);
+	return OHM_STRUCTURE(self)->priv->fields;
 }
 
 
