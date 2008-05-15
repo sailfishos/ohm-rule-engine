@@ -7,8 +7,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define NEW_OHMFACT
+
 G_BEGIN_DECLS
 
+typedef struct _OhmPair OhmPair;
 
 #define OHM_TYPE_STRUCTURE (ohm_structure_get_type ())
 #define OHM_STRUCTURE(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), OHM_TYPE_STRUCTURE, OhmStructure))
@@ -76,6 +79,29 @@ typedef struct _OhmFactStoreChangeSet OhmFactStoreChangeSet;
 typedef struct _OhmFactStoreChangeSetClass OhmFactStoreChangeSetClass;
 typedef struct _OhmFactStoreChangeSetPrivate OhmFactStoreChangeSetPrivate;
 
+#define OHM_FACT_STORE_TYPE_SIMPLE_VIEW (ohm_fact_store_simple_view_get_type ())
+#define OHM_FACT_STORE_SIMPLE_VIEW(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), OHM_FACT_STORE_TYPE_SIMPLE_VIEW, OhmFactStoreSimpleView))
+#define OHM_FACT_STORE_SIMPLE_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), OHM_FACT_STORE_TYPE_SIMPLE_VIEW, OhmFactStoreSimpleViewClass))
+#define OHM_FACT_STORE_IS_SIMPLE_VIEW(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), OHM_FACT_STORE_TYPE_SIMPLE_VIEW))
+#define OHM_FACT_STORE_IS_SIMPLE_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), OHM_FACT_STORE_TYPE_SIMPLE_VIEW))
+#define OHM_FACT_STORE_SIMPLE_VIEW_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), OHM_FACT_STORE_TYPE_SIMPLE_VIEW, OhmFactStoreSimpleViewClass))
+
+typedef struct _OhmFactStoreSimpleView OhmFactStoreSimpleView;
+typedef struct _OhmFactStoreSimpleViewClass OhmFactStoreSimpleViewClass;
+typedef struct _OhmFactStoreSimpleViewPrivate OhmFactStoreSimpleViewPrivate;
+
+#define OHM_FACT_STORE_TYPE_TRANSACTION (ohm_fact_store_transaction_get_type ())
+#define OHM_FACT_STORE_TRANSACTION(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), OHM_FACT_STORE_TYPE_TRANSACTION, OhmFactStoreTransaction))
+#define OHM_FACT_STORE_TRANSACTION_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), OHM_FACT_STORE_TYPE_TRANSACTION, OhmFactStoreTransactionClass))
+#define OHM_FACT_STORE_IS_TRANSACTION(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), OHM_FACT_STORE_TYPE_TRANSACTION))
+#define OHM_FACT_STORE_IS_TRANSACTION_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), OHM_FACT_STORE_TYPE_TRANSACTION))
+#define OHM_FACT_STORE_TRANSACTION_GET_CLASS(obj) (G_TYPE_INSTANCE_GET_CLASS ((obj), OHM_FACT_STORE_TYPE_TRANSACTION, OhmFactStoreTransactionClass))
+
+typedef struct _OhmFactStoreTransaction OhmFactStoreTransaction;
+typedef struct _OhmFactStoreTransactionClass OhmFactStoreTransactionClass;
+typedef struct _OhmFactStoreTransactionPrivate OhmFactStoreTransactionPrivate;
+typedef struct _OhmFactStoreTransactionCOW OhmFactStoreTransactionCOW;
+
 #define OHM_FACT_STORE_TYPE_VIEW (ohm_fact_store_view_get_type ())
 #define OHM_FACT_STORE_VIEW(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), OHM_FACT_STORE_TYPE_VIEW, OhmFactStoreView))
 #define OHM_FACT_STORE_VIEW_CLASS(klass) (G_TYPE_CHECK_CLASS_CAST ((klass), OHM_FACT_STORE_TYPE_VIEW, OhmFactStoreViewClass))
@@ -100,73 +126,223 @@ typedef struct _OhmRule OhmRule;
 typedef struct _OhmRuleClass OhmRuleClass;
 typedef struct _OhmRulePrivate OhmRulePrivate;
 
+/**
+ * OhmPair:
+ * @first:  a pointer
+ * @second:  a 2nd pointer
+ *
+ * Used to handle a pair of values, ala C++.
+ */
+struct _OhmPair {
+	gpointer first;
+	gpointer second;
+};
+
+/**
+ * ohm_pair_free:
+ * @self:  a pair
+ *
+ * The function will not free @first and @second. FIXME
+ *
+ *
+*
+ * OhmStructure:
+ * @fields:  the list of field names, as #GQuark, in #SList->@data
+ *
+ * #OhmStructure is used as a dynamic structure (like
+ * GstStructure). it can have multiple dynamic fields of
+     * different types.
+ */
 struct _OhmStructure {
 	GObject parent_instance;
 	OhmStructurePrivate * priv;
+	GSList* fields;
+	GQuark _name;
 };
+
 struct _OhmStructureClass {
 	GObjectClass parent_class;
 	void (*qset) (OhmStructure* self, GQuark field, GValue* value);
 };
+
+/**
+ * OhmPattern:
+ *
+ * #OhmPattern is used to express a pattern to match against a #OhmFact.
+ * It's usually used by the #OhmFactStoreView to declare interest in facts.
+ *
+ * See ohm_pattern_match() and #OhmPatternMatch for more information.
+ */
 struct _OhmPattern {
 	OhmStructure parent_instance;
 	OhmPatternPrivate * priv;
 };
+
 struct _OhmPatternClass {
 	OhmStructureClass parent_class;
 };
-/* , matches*/
+
+/**
+ * OhmPatternMatch:
+ *
+ * The result of a ohm_pattern_match () evaluation.
+ *
+ * See ohm_pattern_match() and #OhmPattern for more information.
+ */
 struct _OhmPatternMatch {
 	GObject parent_instance;
 	OhmPatternMatchPrivate * priv;
 };
+
 struct _OhmPatternMatchClass {
 	GObjectClass parent_class;
 };
+
+/**
+ * OhmFact:
+ *
+ * #OhmFact inherits from #OhmStructure to represents a fact in a
+ * #OhmFactStore, like:
+ *
+ * <informalexample>
+ * <programlisting>
+ * org.freedesktop.DBus.Object (path: "/a/path", connexion: ":1.2")
+ * </programlisting>
+ * </informalexample>
+ * 
+ * 
+ */
 struct _OhmFact {
 	OhmStructure parent_instance;
 	OhmFactPrivate * priv;
 };
+
 struct _OhmFactClass {
 	OhmStructureClass parent_class;
 };
+
+/**
+ * OhmFactStore:
+ *
+ * This object serves as the knowledge base for all the known facts.
+ *
+ * You typically need to get the singleton with ohm_get_fact_store ().
+ * Then, you can call either: 
+ * <itemizedlist>
+ * <listitem>
+ * <para>
+ * ohm_fact_store_insert () to insert a #OhmFact in the fact-store.
+ * </para>
+ * </listitem>
+ * <listitem>
+ * <para>
+ * ohm_fact_store_remove () to remove a #OhmFact from the fact-store.
+ * </para>
+ * </listitem>
+ * </itemizedlist>
+ **/
 struct _OhmFactStore {
 	GObject parent_instance;
 	OhmFactStorePrivate * priv;
+	GQueue* transaction;
 };
+
 struct _OhmFactStoreClass {
 	GObjectClass parent_class;
 };
+
+/**
+ * OhmFactStoreChangeSet:
+ *
+ * This object serves as an aggregator of the changes.
+ *
+ **/
 struct _OhmFactStoreChangeSet {
 	GObject parent_instance;
 	OhmFactStoreChangeSetPrivate * priv;
 };
+
 struct _OhmFactStoreChangeSetClass {
 	GObjectClass parent_class;
 };
-struct _OhmFactStoreView {
+
+/**
+ * OhmFactStoreSimpleView:
+ *
+ * The base class to implement views.
+ * You typically need #OhmFactStoreView only.
+ *
+ **/
+struct _OhmFactStoreSimpleView {
 	GObject parent_instance;
-	OhmFactStoreViewPrivate * priv;
+	OhmFactStoreSimpleViewPrivate * priv;
 	OhmFactStoreChangeSet* change_set;
 };
-struct _OhmFactStoreViewClass {
+
+struct _OhmFactStoreSimpleViewClass {
 	GObjectClass parent_class;
 };
+
+/**
+ * OhmFactStoreTransaction:
+ *
+ * The class that represent transactions. Used internally.
+ *
+ **/
+struct _OhmFactStoreTransaction {
+	OhmFactStoreSimpleView parent_instance;
+	OhmFactStoreTransactionPrivate * priv;
+	GSList* matches;
+	GSList* modifications;
+};
+
+struct _OhmFactStoreTransactionClass {
+	OhmFactStoreSimpleViewClass parent_class;
+};
+
+struct _OhmFactStoreTransactionCOW {
+	OhmFact* fact;
+	gint event;
+	GQuark field;
+	GValue* value;
+};
+
+/**
+ * OhmFactStoreView:
+ *
+ * A #OhmFactStoreView custom view.
+ *
+ **/
+struct _OhmFactStoreView {
+	OhmFactStoreSimpleView parent_instance;
+	OhmFactStoreViewPrivate * priv;
+	GSList* patterns;
+};
+
+struct _OhmFactStoreViewClass {
+	OhmFactStoreSimpleViewClass parent_class;
+};
+
 typedef enum  {
 	OHM_FACT_STORE_EVENT_ADDED,
 	OHM_FACT_STORE_EVENT_REMOVED,
-	OHM_FACT_STORE_EVENT_UPDATED
+	OHM_FACT_STORE_EVENT_UPDATED,
+	OHM_FACT_STORE_EVENT_LOOKUP
 } OhmFactStoreEvent;
 
-/*FIXME*/
 struct _OhmRule {
 	GObject parent_instance;
 	OhmRulePrivate * priv;
 };
+
 struct _OhmRuleClass {
 	GObjectClass parent_class;
+	void (*fire) (OhmRule* self, OhmFactStoreChangeSet* change_set);
 };
 
+
+OhmPair* ohm_pair_new (gpointer first, gpointer second);
+void ohm_pair_free (OhmPair* self);
 OhmStructure* ohm_structure_new (const char* name);
 void ohm_structure_qset (OhmStructure* self, GQuark field, GValue* value);
 GValue* ohm_structure_qget (OhmStructure* self, GQuark field);
@@ -179,9 +355,12 @@ char* ohm_structure_get_name (OhmStructure* self);
 void ohm_structure_set_name (OhmStructure* self, const char* value);
 GType ohm_structure_get_type (void);
 OhmPattern* ohm_pattern_new (const char* name);
+OhmPattern* ohm_pattern_new_for_fact (OhmFact* fact);
 OhmPatternMatch* ohm_pattern_match (OhmPattern* self, OhmFact* fact, OhmFactStoreEvent event);
 OhmFactStoreView* ohm_pattern_get_view (OhmPattern* self);
 void ohm_pattern_set_view (OhmPattern* self, OhmFactStoreView* value);
+OhmFact* ohm_pattern_get_fact (OhmPattern* self);
+void ohm_pattern_set_fact (OhmPattern* self, OhmFact* value);
 OhmPatternMatch* ohm_pattern_match_new (OhmFact* fact, OhmPattern* pattern, OhmFactStoreEvent event);
 char* ohm_pattern_match_to_string (OhmPatternMatch* self);
 OhmFact* ohm_pattern_match_get_fact (OhmPatternMatch* self);
@@ -201,36 +380,50 @@ void ohm_fact_store_update (OhmFactStore* self, OhmFact* fact, GQuark field, GVa
 GSList* ohm_fact_store_get_facts_by_quark (OhmFactStore* self, GQuark qname);
 GSList* ohm_fact_store_get_facts_by_name (OhmFactStore* self, const char* name);
 GSList* ohm_fact_store_get_facts_by_pattern (OhmFactStore* self, OhmPattern* pattern);
+void ohm_fact_store_transaction_push (OhmFactStore* self);
+void ohm_fact_store_transaction_pop (OhmFactStore* self, gboolean discard);
 OhmFactStore* ohm_fact_store_new (void);
 char* ohm_fact_store_to_string (OhmFactStore* self);
-void ohm_fact_store_my_debug (OhmFactStore* self);
-OhmFactStore* ohm_fact_store_get_fact_store (void);
 OhmFactStoreView* ohm_fact_store_new_view (OhmFactStore* self, GObject* listener);
 void ohm_fact_store_change_set_add_match (OhmFactStoreChangeSet* self, OhmPatternMatch* match);
+void ohm_fact_store_change_set_remove_match (OhmFactStoreChangeSet* self, OhmPatternMatch* match);
 void ohm_fact_store_change_set_reset (OhmFactStoreChangeSet* self);
+char* ohm_fact_store_change_set_to_string (OhmFactStoreChangeSet* self);
 OhmFactStoreChangeSet* ohm_fact_store_change_set_new (void);
 GSList* ohm_fact_store_change_set_get_matches (OhmFactStoreChangeSet* self);
 GType ohm_fact_store_change_set_get_type (void);
-GObject* ohm_fact_store_view_get_listener (OhmFactStoreView* self);
-OhmFactStore* ohm_fact_store_view_get_fact_store (OhmFactStoreView* self);
-GSList* ohm_fact_store_view_get_interested (OhmFactStoreView* self);
-void ohm_fact_store_view_set_interested (OhmFactStoreView* self, GSList* value);
+OhmFactStoreSimpleView* ohm_fact_store_simple_view_new (void);
+GObject* ohm_fact_store_simple_view_get_listener (OhmFactStoreSimpleView* self);
+void ohm_fact_store_simple_view_set_listener (OhmFactStoreSimpleView* self, GObject* value);
+OhmFactStore* ohm_fact_store_simple_view_get_fact_store (OhmFactStoreSimpleView* self);
+void ohm_fact_store_simple_view_set_fact_store (OhmFactStoreSimpleView* self, OhmFactStore* value);
+GType ohm_fact_store_simple_view_get_type (void);
+OhmFactStoreTransactionCOW* ohm_fact_store_transaction_cow_new (OhmFact* fact, OhmFactStoreEvent event, GQuark field, GValue* value);
+void ohm_fact_store_transaction_cow_free (OhmFactStoreTransactionCOW* self);
+GType ohm_fact_store_transaction_get_type (void);
+void ohm_fact_store_view_add (OhmFactStoreView* self, OhmStructure* interest);
+void ohm_fact_store_view_remove (OhmFactStoreView* self, OhmStructure* interest);
+char* ohm_fact_store_view_to_string (OhmFactStoreView* self);
 GType ohm_fact_store_view_get_type (void);
 GType ohm_fact_store_event_get_type (void);
 GType ohm_fact_store_get_type (void);
-OhmRule* ohm_rule_new (OhmFactStore* fact_store);
-void ohm_rule_fire (OhmRule* self);
-OhmFactStore* ohm_rule_get_fact_store (OhmRule* self);
+OhmRule* ohm_rule_fixme (GType type, OhmFactStore* fact_store);
+void ohm_rule_fire (OhmRule* self, OhmFactStoreChangeSet* change_set);
+char* ohm_rule_to_string (OhmRule* self);
+OhmRule* ohm_rule_new (void);
+OhmFactStoreView* ohm_rule_get_view (OhmRule* self);
+void ohm_rule_set_view (OhmRule* self, OhmFactStoreView* value);
 void ohm_rule_set_fact_store (OhmRule* self, OhmFactStore* value);
-GSList* ohm_rule_get_interested (OhmRule* self);
-void ohm_rule_set_interested (OhmRule* self, GSList* value);
-GSList* ohm_rule_get_provide (OhmRule* self);
-void ohm_rule_set_provide (OhmRule* self, GSList* value);
 GType ohm_rule_get_type (void);
-GValue ohm_value_from_string (const char* str);
-GValue ohm_value_from_int (gint val);
+extern OhmFactStore* ohm_fs;
+OhmFactStore* ohm_get_fact_store (void);
+GValue* ohm_value_from_string (const char* str);
+GValue* ohm_value_from_int (gint val);
 GValue ohm_value_from_structure (OhmStructure* val);
+GValue ohm_value_from_fact (OhmFact* val);
+gint ohm_value_cmp (GValue* v1, GValue* v2);
 OhmStructure* ohm_value_get_structure (GValue* value);
+OhmFact* ohm_value_get_fact (GValue* value);
 
 
 G_END_DECLS

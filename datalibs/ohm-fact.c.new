@@ -1,0 +1,2303 @@
+
+#include <prolog/ohm-fact.h>
+
+
+
+
+enum  {
+	OHM_STRUCTURE_DUMMY_PROPERTY,
+	OHM_STRUCTURE_QNAME,
+	OHM_STRUCTURE_NAME
+};
+static void _ohm_structure_unset_and_free (void* p);
+static void __ohm_structure_unset_and_free_gdestroy_notify (void* data);
+static void ohm_structure_real_qset (OhmStructure* self, GQuark field, GValue* value);
+static void _ohm_structure_value_to_string_gvalue_transform (GValue* src_value, GValue* dest_value);
+static GObject * ohm_structure_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
+static gpointer ohm_structure_parent_class = NULL;
+static void ohm_structure_dispose (GObject * obj);
+struct _OhmPatternPrivate {
+	OhmFactStoreView* _view;
+	OhmFact* _fact;
+};
+
+#define OHM_PATTERN_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_TYPE_PATTERN, OhmPatternPrivate))
+enum  {
+	OHM_PATTERN_DUMMY_PROPERTY,
+	OHM_PATTERN_VIEW,
+	OHM_PATTERN_FACT
+};
+struct _OhmPatternMatchPrivate {
+	OhmFact* _fact;
+	OhmPattern* _pattern;
+	OhmFactStoreEvent _event;
+};
+
+#define OHM_PATTERN_MATCH_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_PATTERN_TYPE_MATCH, OhmPatternMatchPrivate))
+enum  {
+	OHM_PATTERN_MATCH_DUMMY_PROPERTY,
+	OHM_PATTERN_MATCH_FACT,
+	OHM_PATTERN_MATCH_PATTERN,
+	OHM_PATTERN_MATCH_EVENT
+};
+static void ohm_pattern_match_set_fact (OhmPatternMatch* self, OhmFact* value);
+static void ohm_pattern_match_set_pattern (OhmPatternMatch* self, OhmPattern* value);
+static void ohm_pattern_match_set_event (OhmPatternMatch* self, OhmFactStoreEvent value);
+static gpointer ohm_pattern_match_parent_class = NULL;
+static void ohm_pattern_match_dispose (GObject * obj);
+static gpointer ohm_pattern_parent_class = NULL;
+static void ohm_pattern_dispose (GObject * obj);
+struct _OhmFactPrivate {
+	OhmFactStore* _fact_store;
+};
+
+#define OHM_FACT_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_TYPE_FACT, OhmFactPrivate))
+enum  {
+	OHM_FACT_DUMMY_PROPERTY,
+	OHM_FACT_FACT_STORE
+};
+static void ohm_fact_real_qset (OhmStructure* base, GQuark field, GValue* value);
+static gpointer ohm_fact_parent_class = NULL;
+static void ohm_fact_dispose (GObject * obj);
+struct _OhmFactStorePrivate {
+	GSList* known_facts_qname;
+	GData* interest;
+};
+
+#define OHM_FACT_STORE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_TYPE_FACT_STORE, OhmFactStorePrivate))
+enum  {
+	OHM_FACT_STORE_DUMMY_PROPERTY
+};
+static void _ohm_fact_store_update_views (OhmFactStore* self, OhmFact* fact, OhmFactStoreEvent event);
+static gboolean ohm_fact_store_insert_internal (OhmFactStore* self, OhmFact* fact);
+static gboolean ohm_fact_store_remove_internal (OhmFactStore* self, OhmFact* fact);
+static void _ohm_fact_store_delete_func (GSList* l);
+static void ohm_fact_store_set_view_interest (OhmFactStore* self, OhmFactStoreView* v);
+struct _OhmFactStoreChangeSetPrivate {
+	GSList* _matches;
+};
+
+#define OHM_FACT_STORE_CHANGE_SET_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_FACT_STORE_TYPE_CHANGE_SET, OhmFactStoreChangeSetPrivate))
+enum  {
+	OHM_FACT_STORE_CHANGE_SET_DUMMY_PROPERTY,
+	OHM_FACT_STORE_CHANGE_SET_MATCHES
+};
+static gpointer ohm_fact_store_change_set_parent_class = NULL;
+static void ohm_fact_store_change_set_dispose (GObject * obj);
+struct _OhmFactStoreSimpleViewPrivate {
+	GObject* _listener;
+	OhmFactStore* _fact_store;
+};
+
+#define OHM_FACT_STORE_SIMPLE_VIEW_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_FACT_STORE_TYPE_SIMPLE_VIEW, OhmFactStoreSimpleViewPrivate))
+enum  {
+	OHM_FACT_STORE_SIMPLE_VIEW_DUMMY_PROPERTY,
+	OHM_FACT_STORE_SIMPLE_VIEW_LISTENER,
+	OHM_FACT_STORE_SIMPLE_VIEW_FACT_STORE
+};
+static GObject * ohm_fact_store_simple_view_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
+static gpointer ohm_fact_store_simple_view_parent_class = NULL;
+static void ohm_fact_store_simple_view_dispose (GObject * obj);
+enum  {
+	OHM_FACT_STORE_TRANSACTION_DUMMY_PROPERTY
+};
+static OhmFactStoreTransaction* ohm_fact_store_transaction_new (OhmFactStore* fact_store, GObject* listener);
+static gpointer ohm_fact_store_transaction_parent_class = NULL;
+static void ohm_fact_store_transaction_dispose (GObject * obj);
+enum  {
+	OHM_FACT_STORE_VIEW_DUMMY_PROPERTY
+};
+static OhmFactStoreView* ohm_fact_store_view_new (OhmFactStore* fact_store, GObject* listener);
+static gpointer ohm_fact_store_view_parent_class = NULL;
+static void ohm_fact_store_view_dispose (GObject * obj);
+static gpointer ohm_fact_store_parent_class = NULL;
+static void ohm_fact_store_dispose (GObject * obj);
+struct _OhmRulePrivate {
+	OhmFactStoreView* _view;
+};
+
+#define OHM_RULE_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), OHM_TYPE_RULE, OhmRulePrivate))
+enum  {
+	OHM_RULE_DUMMY_PROPERTY,
+	OHM_RULE_VIEW,
+	OHM_RULE_FACT_STORE
+};
+static gpointer ohm_rule_parent_class = NULL;
+static void ohm_rule_dispose (GObject * obj);
+OhmFactStore* ohm_fs = NULL;
+
+
+static void g_cclosure_user_marshal_VOID__OBJECT_UINT_POINTER (GClosure * closure, GValue * return_value, guint n_param_values, const GValue * param_values, gpointer invocation_hint, gpointer marshal_data);
+
+/**
+ * ohm_pair_new:
+ * @first: pointer to first, weak ref
+ * @second: pointer to second, weak ref
+ *
+ * <note>
+ * <para>
+ * this will be switch over struct init() instead, with vala support
+ * </para>
+ * </note>
+ *
+ * Returns: a new Pair&lt;first,second&gt;
+ **/
+OhmPair* ohm_pair_new (gpointer first, gpointer second) {
+	OhmPair* self;
+	gpointer _tmp1;
+	gpointer _tmp0;
+	gpointer _tmp3;
+	gpointer _tmp2;
+	self = g_slice_new0 (OhmPair);
+	_tmp1 = NULL;
+	_tmp0 = NULL;
+	self->first = (_tmp1 = (_tmp0 = first, first = NULL, _tmp0), NULL, _tmp1);
+	_tmp3 = NULL;
+	_tmp2 = NULL;
+	self->second = (_tmp3 = (_tmp2 = second, second = NULL, _tmp2), NULL, _tmp3);
+	return self;
+}
+
+
+void ohm_pair_free (OhmPair* self) {
+	NULL;
+	NULL;
+	g_slice_free (OhmPair, self);
+}
+
+
+/**
+ * ohm_structure_new:
+ * @name: the name of the structure
+ *
+ * Create a new #OhmStructure
+ *
+ * Returns: a new, 0-field, #OhmStructure with the name @name.
+ **/
+OhmStructure* ohm_structure_new (const char* name) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmStructure * self;
+	g_return_val_if_fail (name != NULL, NULL);
+	__params = g_new0 (GParameter, 1);
+	__params_it = __params;
+	__params_it->name = "name";
+	g_value_init (&__params_it->value, G_TYPE_STRING);
+	g_value_set_string (&__params_it->value, name);
+	__params_it++;
+	self = g_object_newv (OHM_TYPE_STRUCTURE, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+static void _ohm_structure_unset_and_free (void* p) {
+	GValue* v;
+	v = ((GValue*) p);
+	g_value_unset (v);
+	g_free (v);
+}
+
+
+static void __ohm_structure_unset_and_free_gdestroy_notify (void* data) {
+	_ohm_structure_unset_and_free (data);
+}
+
+
+/**
+ * ohm_structure_qset:
+ * @self: the #OhmStructure
+ * @field: the #GQuark name of the field to set
+ * @value: a #GValue with an arbitrary type. If %NULL, then the @field is removed.
+ *
+ * Set a @field to @value.
+ * @value should be allocated by the caller. It will be freed when #OhmStructure is destroyed or the field is removed.
+ **/
+static void ohm_structure_real_qset (OhmStructure* self, GQuark field, GValue* value) {
+	g_return_if_fail (OHM_IS_STRUCTURE (self));
+	/*fixme, use ?#*/
+	if (value == NULL) {
+		self->fields = g_slist_remove (self->fields, GINT_TO_POINTER (field));
+		g_object_set_qdata (G_OBJECT (self), field, NULL);
+	} else {
+		if (g_slist_find (self->fields, GINT_TO_POINTER (field)) == NULL) {
+			self->fields = g_slist_append (self->fields, GINT_TO_POINTER (field));
+		}
+		g_object_set_qdata_full (G_OBJECT (self), field, value, __ohm_structure_unset_and_free_gdestroy_notify);
+	}
+}
+
+
+void ohm_structure_qset (OhmStructure* self, GQuark field, GValue* value) {
+	OHM_STRUCTURE_GET_CLASS (self)->qset (self, field, value);
+}
+
+
+/**
+ * ohm_structure_qget:
+ * @self: the #OhmStructure
+ * @field: the #GQuark name of the field to get
+ *
+ * Returns: The field value or %NULL if the field does not exist.
+ **/
+GValue* ohm_structure_qget (OhmStructure* self, GQuark field) {
+	0;
+	return ((GValue*) g_object_get_qdata (G_OBJECT (self), field));
+}
+
+
+/**
+ * ohm_structure_set:
+ * @self: the #OhmStructure
+ * @field: the name of the field to set
+ * @value: a #GValue with an arbitrary type. If %NULL, then the @field is removed.
+ *
+ * Set a @field to @value.
+ * @value should be allocated by the caller. It will be freed when #OhmStructure is destroyed or the field is removed.
+ **/
+void ohm_structure_set (OhmStructure* self, const char* field_name, GValue* value) {
+	g_return_if_fail (OHM_IS_STRUCTURE (self));
+	g_return_if_fail (field_name != NULL);
+	/*fixme ?#*/
+	ohm_structure_qset (self, g_quark_from_string (field_name), value);
+}
+
+
+/**
+ * ohm_structure_get:
+ * @self: the #OhmStructure
+ * @field: the name of the field to get
+ *
+ * Returns: The field value or %NULL if the field does not exist.
+ **/
+GValue* ohm_structure_get (OhmStructure* self, const char* field_name) {
+	0;
+	0;
+	return ((GValue*) g_object_get_data (G_OBJECT (self), field_name));
+}
+
+
+/**
+ * ohm_structure_to_string:
+ * @self: the #OhmStructure to dump to string
+ *
+ * Returns: an allocated string of debug/introspection information.
+ **/
+char* ohm_structure_to_string (OhmStructure* self) {
+	char* ret;
+	gboolean first;
+	char* _tmp4;
+	g_return_val_if_fail (OHM_IS_STRUCTURE (self), NULL);
+	ret = g_strdup_printf ("%s (", ohm_structure_get_name (self));
+	first = TRUE;
+	{
+		GSList* q_collection;
+		GSList* q_it;
+		q_collection = self->fields;
+		for (q_it = q_collection; q_it != NULL; q_it = q_it->next) {
+			GQuark q;
+			q = GPOINTER_TO_INT (q_it->data);
+			{
+				GValue* v;
+				char* _tmp3;
+				char* _tmp2;
+				char* _tmp1;
+				if (!first) {
+					char* _tmp0;
+					_tmp0 = NULL;
+					ret = (_tmp0 = g_strconcat (ret, (", "), NULL), (ret = (g_free (ret), NULL)), _tmp0);
+				} else {
+					first = FALSE;
+				}
+				v = g_object_get_qdata (G_OBJECT (self), q);
+				_tmp3 = NULL;
+				_tmp2 = NULL;
+				_tmp1 = NULL;
+				ret = (_tmp3 = g_strconcat (ret, (_tmp2 = (g_strdup_printf ("%s = %s", g_quark_to_string (q), (_tmp1 = g_strdup_value_contents (v))))), NULL), (ret = (g_free (ret), NULL)), _tmp3);
+				_tmp2 = (g_free (_tmp2), NULL);
+				_tmp1 = (g_free (_tmp1), NULL);
+			}
+		}
+	}
+	_tmp4 = NULL;
+	return (_tmp4 = g_strconcat (ret, ")", NULL), (ret = (g_free (ret), NULL)), _tmp4);
+}
+
+
+/**
+ * ohm_structure_value_to_string:
+ * @src: a @src value
+ * @dest: a @dest value
+ *
+ * Convert a #GValue of type #OhmStructure to a string #GValue.
+ **/
+void ohm_structure_value_to_string (GValue* src, GValue* dest) {
+	OhmStructure* s;
+	char* _tmp0;
+	s = ohm_value_get_structure (&(*src));
+	g_return_if_fail (s != NULL);
+	_tmp0 = NULL;
+	g_value_set_string (&(*dest), (_tmp0 = ohm_structure_to_string (s)));
+	_tmp0 = (g_free (_tmp0), NULL);
+	(s == NULL ? NULL : (s = (g_object_unref (s), NULL)));
+}
+
+
+GQuark ohm_structure_get_qname (OhmStructure* self) {
+	g_return_val_if_fail (OHM_IS_STRUCTURE (self), 0U);
+	return self->_name;
+}
+
+
+char* ohm_structure_get_name (OhmStructure* self) {
+	g_return_val_if_fail (OHM_IS_STRUCTURE (self), NULL);
+	return g_quark_to_string (self->_name);
+}
+
+
+void ohm_structure_set_name (OhmStructure* self, const char* value) {
+	g_return_if_fail (OHM_IS_STRUCTURE (self));
+	self->_name = g_quark_from_string (value);
+}
+
+
+static void _ohm_structure_value_to_string_gvalue_transform (GValue* src_value, GValue* dest_value) {
+	ohm_structure_value_to_string (src_value, dest_value);
+}
+
+
+static GObject * ohm_structure_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties) {
+	GObject * obj;
+	OhmStructureClass * klass;
+	GObjectClass * parent_class;
+	OhmStructure * self;
+	klass = OHM_STRUCTURE_CLASS (g_type_class_peek (OHM_TYPE_STRUCTURE));
+	parent_class = G_OBJECT_CLASS (g_type_class_peek_parent (klass));
+	obj = parent_class->constructor (type, n_construct_properties, construct_properties);
+	self = OHM_STRUCTURE (obj);
+	{
+		g_value_register_transform_func (OHM_TYPE_STRUCTURE, G_TYPE_STRING, _ohm_structure_value_to_string_gvalue_transform);
+	}
+	return obj;
+}
+
+
+static void ohm_structure_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmStructure * self;
+	self = OHM_STRUCTURE (object);
+	switch (property_id) {
+		case OHM_STRUCTURE_QNAME:
+		g_value_set_uint (value, ohm_structure_get_qname (self));
+		break;
+		case OHM_STRUCTURE_NAME:
+		g_value_set_string (value, ohm_structure_get_name (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_structure_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmStructure * self;
+	self = OHM_STRUCTURE (object);
+	switch (property_id) {
+		case OHM_STRUCTURE_NAME:
+		ohm_structure_set_name (self, g_value_get_string (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_structure_class_init (OhmStructureClass * klass) {
+	ohm_structure_parent_class = g_type_class_peek_parent (klass);
+	G_OBJECT_CLASS (klass)->get_property = ohm_structure_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_structure_set_property;
+	G_OBJECT_CLASS (klass)->constructor = ohm_structure_constructor;
+	G_OBJECT_CLASS (klass)->dispose = ohm_structure_dispose;
+	OHM_STRUCTURE_CLASS (klass)->qset = ohm_structure_real_qset;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_STRUCTURE_QNAME, g_param_spec_uint ("qname", "qname", "qname", 0, G_MAXUINT, 0U, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_STRUCTURE_NAME, g_param_spec_string ("name", "name", "name", NULL, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
+}
+
+
+static void ohm_structure_init (OhmStructure * self) {
+	self->fields = NULL;
+}
+
+
+static void ohm_structure_dispose (GObject * obj) {
+	OhmStructure * self;
+	self = OHM_STRUCTURE (obj);
+	(self->fields == NULL ? NULL : (self->fields = (g_slist_free (self->fields), NULL)));
+	G_OBJECT_CLASS (ohm_structure_parent_class)->dispose (obj);
+}
+
+
+GType ohm_structure_get_type (void) {
+	static GType ohm_structure_type_id = 0;
+	if (G_UNLIKELY (ohm_structure_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmStructureClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_structure_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmStructure), 0, (GInstanceInitFunc) ohm_structure_init };
+		ohm_structure_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmStructure", &g_define_type_info, 0);
+	}
+	return ohm_structure_type_id;
+}
+
+
+/**
+ * ohm_pattern_new:
+ * @name: the fact name to match with the pattern
+ *
+ * Create a new #OhmPattern.
+ *
+ * Returns: a fresh new, 0-field, #OhmPattern with for the name @name.
+ **/
+OhmPattern* ohm_pattern_new (const char* name) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmPattern * self;
+	g_return_val_if_fail (name != NULL, NULL);
+	__params = g_new0 (GParameter, 1);
+	__params_it = __params;
+	__params_it->name = "name";
+	g_value_init (&__params_it->value, G_TYPE_STRING);
+	g_value_set_string (&__params_it->value, name);
+	__params_it++;
+	self = g_object_newv (OHM_TYPE_PATTERN, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+/**
+ * ohm_pattern_new_for_fact:
+ * @fact: the fact to match with this pattern.
+ *
+ * Create a new #OhmPattern that will match @fact.
+ *
+ * Returns: a new #OhmPattern that will match only @fact.
+ **/
+OhmPattern* ohm_pattern_new_for_fact (OhmFact* fact) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmPattern * self;
+	g_return_val_if_fail (OHM_IS_FACT (fact), NULL);
+	__params = g_new0 (GParameter, 1);
+	__params_it = __params;
+	__params_it->name = "name";
+	g_value_init (&__params_it->value, G_TYPE_STRING);
+	g_value_set_string (&__params_it->value, ohm_structure_get_name (OHM_STRUCTURE (fact)));
+	__params_it++;
+	self = g_object_newv (OHM_TYPE_PATTERN, __params_it - __params, __params);
+	ohm_pattern_set_fact (self, fact);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+/**
+ * ohm_pattern_match:
+ * @self: the pattern
+ * @fact: the fact to match (not %NULL)
+ * @event: the event that caused the match evaluation (ex: %OHM_FACT_STORE_EVENT_LOOKUP)
+ *
+ * This method is used to get the facts from the #OhmFactStore, mainly
+ * for debugging or by the #OhmFactStoreView views. You usually don't
+ * have to match facts yourself, but instead rely on #OhmFactStoreView
+ * functionnality.
+ *
+ * Returns: a new #OhmPatternMatch if the @fact matches the pattern @self, or %NULL.
+ **/
+OhmPatternMatch* ohm_pattern_match (OhmPattern* self, OhmFact* fact, OhmFactStoreEvent event) {
+	g_return_val_if_fail (OHM_IS_PATTERN (self), NULL);
+	g_return_val_if_fail (OHM_IS_FACT (fact), NULL);
+	if (self->priv->_fact == fact) {
+		return ohm_pattern_match_new (fact, self, event);
+	}
+	if (ohm_structure_get_qname (OHM_STRUCTURE (fact)) != ohm_structure_get_qname (OHM_STRUCTURE (self))) {
+		return NULL;
+	}
+	{
+		GSList* q_collection;
+		GSList* q_it;
+		q_collection = OHM_STRUCTURE (self)->fields;
+		for (q_it = q_collection; q_it != NULL; q_it = q_it->next) {
+			GQuark q;
+			q = GPOINTER_TO_INT (q_it->data);
+			{
+				GValue* vthis;
+				GValue* vfact;
+				vthis = g_object_get_qdata (G_OBJECT (self), q);
+				vfact = g_object_get_qdata (G_OBJECT (fact), q);
+				if ((vthis != NULL && vfact == NULL) || (vthis == NULL && vfact != NULL)) {
+					return NULL;
+				}
+				if (vthis != NULL && vfact != NULL) {
+					if (G_VALUE_TYPE (vthis) != G_VALUE_TYPE (vfact)) {
+						return NULL;
+					} else {
+						GValue _tmp5 = {0};
+						GValue _tmp4 = {0};
+						if (ohm_value_cmp ((_tmp4 = *vthis, &_tmp4), (_tmp5 = *vfact, &_tmp5)) != 0) {
+							return NULL;
+						}
+					}
+				}
+			}
+		}
+	}
+	return ohm_pattern_match_new (fact, self, event);
+}
+
+
+OhmFactStoreView* ohm_pattern_get_view (OhmPattern* self) {
+	g_return_val_if_fail (OHM_IS_PATTERN (self), NULL);
+	return self->priv->_view;
+}
+
+
+void ohm_pattern_set_view (OhmPattern* self, OhmFactStoreView* value) {
+	g_return_if_fail (OHM_IS_PATTERN (self));
+	self->priv->_view = value;
+	if (self->priv->_view != NULL) {
+		g_object_add_weak_pointer (G_OBJECT (self->priv->_view), &self->priv->_view);
+	}
+}
+
+
+OhmFact* ohm_pattern_get_fact (OhmPattern* self) {
+	g_return_val_if_fail (OHM_IS_PATTERN (self), NULL);
+	return self->priv->_fact;
+}
+
+
+void ohm_pattern_set_fact (OhmPattern* self, OhmFact* value) {
+	OhmFact* _tmp2;
+	OhmFact* _tmp1;
+	g_return_if_fail (OHM_IS_PATTERN (self));
+	_tmp2 = NULL;
+	_tmp1 = NULL;
+	self->priv->_fact = (_tmp2 = (_tmp1 = value, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))), (self->priv->_fact == NULL ? NULL : (self->priv->_fact = (g_object_unref (self->priv->_fact), NULL))), _tmp2);
+}
+
+
+/**
+ * ohm_pattern_match_new:
+ * @fact: a fact (not %NULL)
+ * @pattern: a pattern.
+ * @event: the match event.
+ *
+ * Create a new #OhmPatternMatch to represent a match (used internally be ohm_pattern_match () ).
+ *
+ * Returns: a new #OhmPatternMatch.
+ **/
+OhmPatternMatch* ohm_pattern_match_new (OhmFact* fact, OhmPattern* pattern, OhmFactStoreEvent event) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmPatternMatch * self;
+	g_return_val_if_fail (OHM_IS_FACT (fact), NULL);
+	g_return_val_if_fail (OHM_IS_PATTERN (pattern), NULL);
+	__params = g_new0 (GParameter, 3);
+	__params_it = __params;
+	__params_it->name = "fact";
+	g_value_init (&__params_it->value, OHM_TYPE_FACT);
+	g_value_set_object (&__params_it->value, fact);
+	__params_it++;
+	__params_it->name = "pattern";
+	g_value_init (&__params_it->value, OHM_TYPE_PATTERN);
+	g_value_set_object (&__params_it->value, pattern);
+	__params_it++;
+	__params_it->name = "event";
+	g_value_init (&__params_it->value, OHM_FACT_STORE_TYPE_EVENT);
+	g_value_set_enum (&__params_it->value, event);
+	__params_it++;
+	self = g_object_newv (OHM_PATTERN_TYPE_MATCH, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+/**
+ * ohm_pattern_match_to_string:
+ * @self: the #OhmPatternMatch to dump to string
+ *
+ * Returns: an allocated string of debug/introspection information.
+ **/
+char* ohm_pattern_match_to_string (OhmPatternMatch* self) {
+	char* _tmp1;
+	char* _tmp0;
+	char* _tmp2;
+	g_return_val_if_fail (OHM_PATTERN_IS_MATCH (self), NULL);
+	_tmp1 = NULL;
+	_tmp0 = NULL;
+	_tmp2 = NULL;
+	return (_tmp2 = g_strdup_printf ("a match: %s, %s", (_tmp0 = ohm_structure_to_string (OHM_STRUCTURE (self->priv->_fact))), (_tmp1 = ohm_structure_to_string (OHM_STRUCTURE (self->priv->_pattern)))), (_tmp1 = (g_free (_tmp1), NULL)), (_tmp0 = (g_free (_tmp0), NULL)), _tmp2);
+}
+
+
+OhmFact* ohm_pattern_match_get_fact (OhmPatternMatch* self) {
+	g_return_val_if_fail (OHM_PATTERN_IS_MATCH (self), NULL);
+	return self->priv->_fact;
+}
+
+
+static void ohm_pattern_match_set_fact (OhmPatternMatch* self, OhmFact* value) {
+	OhmFact* _tmp2;
+	OhmFact* _tmp1;
+	g_return_if_fail (OHM_PATTERN_IS_MATCH (self));
+	_tmp2 = NULL;
+	_tmp1 = NULL;
+	self->priv->_fact = (_tmp2 = (_tmp1 = value, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))), (self->priv->_fact == NULL ? NULL : (self->priv->_fact = (g_object_unref (self->priv->_fact), NULL))), _tmp2);
+}
+
+
+OhmPattern* ohm_pattern_match_get_pattern (OhmPatternMatch* self) {
+	g_return_val_if_fail (OHM_PATTERN_IS_MATCH (self), NULL);
+	return self->priv->_pattern;
+}
+
+
+static void ohm_pattern_match_set_pattern (OhmPatternMatch* self, OhmPattern* value) {
+	OhmPattern* _tmp2;
+	OhmPattern* _tmp1;
+	g_return_if_fail (OHM_PATTERN_IS_MATCH (self));
+	_tmp2 = NULL;
+	_tmp1 = NULL;
+	self->priv->_pattern = (_tmp2 = (_tmp1 = value, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))), (self->priv->_pattern == NULL ? NULL : (self->priv->_pattern = (g_object_unref (self->priv->_pattern), NULL))), _tmp2);
+}
+
+
+OhmFactStoreEvent ohm_pattern_match_get_event (OhmPatternMatch* self) {
+	g_return_val_if_fail (OHM_PATTERN_IS_MATCH (self), 0);
+	return self->priv->_event;
+}
+
+
+static void ohm_pattern_match_set_event (OhmPatternMatch* self, OhmFactStoreEvent value) {
+	g_return_if_fail (OHM_PATTERN_IS_MATCH (self));
+	self->priv->_event = value;
+}
+
+
+static void ohm_pattern_match_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmPatternMatch * self;
+	self = OHM_PATTERN_MATCH (object);
+	switch (property_id) {
+		case OHM_PATTERN_MATCH_FACT:
+		g_value_set_object (value, ohm_pattern_match_get_fact (self));
+		break;
+		case OHM_PATTERN_MATCH_PATTERN:
+		g_value_set_object (value, ohm_pattern_match_get_pattern (self));
+		break;
+		case OHM_PATTERN_MATCH_EVENT:
+		g_value_set_enum (value, ohm_pattern_match_get_event (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_pattern_match_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmPatternMatch * self;
+	self = OHM_PATTERN_MATCH (object);
+	switch (property_id) {
+		case OHM_PATTERN_MATCH_FACT:
+		ohm_pattern_match_set_fact (self, g_value_get_object (value));
+		break;
+		case OHM_PATTERN_MATCH_PATTERN:
+		ohm_pattern_match_set_pattern (self, g_value_get_object (value));
+		break;
+		case OHM_PATTERN_MATCH_EVENT:
+		ohm_pattern_match_set_event (self, g_value_get_enum (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_pattern_match_class_init (OhmPatternMatchClass * klass) {
+	ohm_pattern_match_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmPatternMatchPrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_pattern_match_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_pattern_match_set_property;
+	G_OBJECT_CLASS (klass)->dispose = ohm_pattern_match_dispose;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_PATTERN_MATCH_FACT, g_param_spec_object ("fact", "fact", "fact", OHM_TYPE_FACT, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_PATTERN_MATCH_PATTERN, g_param_spec_object ("pattern", "pattern", "pattern", OHM_TYPE_PATTERN, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_PATTERN_MATCH_EVENT, g_param_spec_enum ("event", "event", "event", OHM_FACT_STORE_TYPE_EVENT, 0, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+}
+
+
+static void ohm_pattern_match_init (OhmPatternMatch * self) {
+	self->priv = OHM_PATTERN_MATCH_GET_PRIVATE (self);
+}
+
+
+static void ohm_pattern_match_dispose (GObject * obj) {
+	OhmPatternMatch * self;
+	self = OHM_PATTERN_MATCH (obj);
+	(self->priv->_fact == NULL ? NULL : (self->priv->_fact = (g_object_unref (self->priv->_fact), NULL)));
+	(self->priv->_pattern == NULL ? NULL : (self->priv->_pattern = (g_object_unref (self->priv->_pattern), NULL)));
+	G_OBJECT_CLASS (ohm_pattern_match_parent_class)->dispose (obj);
+}
+
+
+GType ohm_pattern_match_get_type (void) {
+	static GType ohm_pattern_match_type_id = 0;
+	if (G_UNLIKELY (ohm_pattern_match_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmPatternMatchClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_pattern_match_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmPatternMatch), 0, (GInstanceInitFunc) ohm_pattern_match_init };
+		ohm_pattern_match_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmPatternMatch", &g_define_type_info, 0);
+	}
+	return ohm_pattern_match_type_id;
+}
+
+
+static void ohm_pattern_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmPattern * self;
+	self = OHM_PATTERN (object);
+	switch (property_id) {
+		case OHM_PATTERN_VIEW:
+		g_value_set_object (value, ohm_pattern_get_view (self));
+		break;
+		case OHM_PATTERN_FACT:
+		g_value_set_object (value, ohm_pattern_get_fact (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_pattern_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmPattern * self;
+	self = OHM_PATTERN (object);
+	switch (property_id) {
+		case OHM_PATTERN_VIEW:
+		ohm_pattern_set_view (self, g_value_get_object (value));
+		break;
+		case OHM_PATTERN_FACT:
+		ohm_pattern_set_fact (self, g_value_get_object (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_pattern_class_init (OhmPatternClass * klass) {
+	ohm_pattern_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmPatternPrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_pattern_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_pattern_set_property;
+	G_OBJECT_CLASS (klass)->dispose = ohm_pattern_dispose;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_PATTERN_VIEW, g_param_spec_object ("view", "view", "view", OHM_FACT_STORE_TYPE_VIEW, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_PATTERN_FACT, g_param_spec_object ("fact", "fact", "fact", OHM_TYPE_FACT, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE));
+}
+
+
+static void ohm_pattern_init (OhmPattern * self) {
+	self->priv = OHM_PATTERN_GET_PRIVATE (self);
+}
+
+
+static void ohm_pattern_dispose (GObject * obj) {
+	OhmPattern * self;
+	self = OHM_PATTERN (obj);
+	{
+		if (ohm_pattern_get_view (self) != NULL) {
+			g_object_remove_weak_pointer (G_OBJECT (self->priv->_view), &self->priv->_view);
+		}
+	}
+	(self->priv->_fact == NULL ? NULL : (self->priv->_fact = (g_object_unref (self->priv->_fact), NULL)));
+	G_OBJECT_CLASS (ohm_pattern_parent_class)->dispose (obj);
+}
+
+
+GType ohm_pattern_get_type (void) {
+	static GType ohm_pattern_type_id = 0;
+	if (G_UNLIKELY (ohm_pattern_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmPatternClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_pattern_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmPattern), 0, (GInstanceInitFunc) ohm_pattern_init };
+		ohm_pattern_type_id = g_type_register_static (OHM_TYPE_STRUCTURE, "OhmPattern", &g_define_type_info, 0);
+	}
+	return ohm_pattern_type_id;
+}
+
+
+/**
+ * ohm_fact_new:
+ * @name: the name of the fact.
+ *
+ * Create a new #OhmFact with the given @name.
+ * A name a well known fact-name like "org.freedesktop.DBus.Object", or "org.alsa-project.mixer".
+ *
+ * Returns: a new #OhmFact, without any fields.
+ **/
+OhmFact* ohm_fact_new (const char* name) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmFact * self;
+	g_return_val_if_fail (name != NULL, NULL);
+	__params = g_new0 (GParameter, 1);
+	__params_it = __params;
+	__params_it->name = "name";
+	g_value_init (&__params_it->value, G_TYPE_STRING);
+	g_value_set_string (&__params_it->value, name);
+	__params_it++;
+	self = g_object_newv (OHM_TYPE_FACT, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+/**
+ * ohm_fact_get:
+ * @self: the #OhmFact
+ * @field: the name of the field to get.
+ *
+ * Returns: The field value or %NULL if the field does not exist.
+ **/
+GValue* ohm_fact_get (OhmFact* self, const char* field_name) {
+	0;
+	0;
+	return ohm_structure_get (OHM_STRUCTURE (self), field_name);
+}
+
+
+/**
+ * ohm_fact_set:
+ * @self: the #OhmFact
+ * @field: the name of the field to set
+ * @value: a #GValue with an arbitrary type. If %NULL, then the @field is removed.
+ *
+ * Set a @field to @value.
+ * @value should be allocated by the caller. It will be freed when #OhmFact is destroyed, or the field is removed.
+ **/
+void ohm_fact_set (OhmFact* self, const char* field_name, GValue* value) {
+	g_return_if_fail (OHM_IS_FACT (self));
+	g_return_if_fail (field_name != NULL);
+	/*fixme ?#, fixme array of changes*/
+	ohm_structure_set (OHM_STRUCTURE (self), field_name, value);
+}
+
+
+/**
+ * ohm_fact_qset:
+ * @self: the #OhmFact
+ * @field: the #GQuark name of the field to set
+ * @value: a #GValue with an arbitrary type. If %NULL, then the @field
+ * is removed.
+ *
+ * Set a @field to @value.
+ * @value should be allocated by the caller. It will be freed when
+ * #OhmFact is destroyed or the field is removed.
+ *
+ * When setting a field, the associated :fact_store is notified and
+ * collects modification in interested views.  The modification is
+ * itself tracked by a #OhmFactStoreTransaction transaction that can
+ * cancel and discard the changes, including the view notificiations.
+ **/
+static void ohm_fact_real_qset (OhmStructure* base, GQuark field, GValue* value) {
+	OhmFact * self;
+	self = OHM_FACT (base);
+	/*fixme ?#
+	 save previous value, if any*/
+	if (self->priv->_fact_store != NULL) {
+		OhmFactStoreTransaction* _tmp0;
+		OhmFactStoreTransaction* t;
+		_tmp0 = NULL;
+		t = (_tmp0 = ((OhmFactStoreTransaction*) g_queue_peek_head (self->priv->_fact_store->transaction)), (_tmp0 == NULL ? NULL : g_object_ref (_tmp0)));
+		if (t != NULL) {
+			t->modifications = g_slist_prepend (t->modifications, ohm_fact_store_transaction_cow_new (self, OHM_FACT_STORE_EVENT_UPDATED, field, g_object_steal_qdata (G_OBJECT (self), field)));
+		}
+		(t == NULL ? NULL : (t = (g_object_unref (t), NULL)));
+	}
+	OHM_STRUCTURE_CLASS (ohm_fact_parent_class)->qset (OHM_STRUCTURE (self), field, value);
+	/* inform the fact_store, and views, if not */
+	if (self->priv->_fact_store != NULL) {
+		ohm_fact_store_update (ohm_fact_get_fact_store (self), self, field, value);
+	}
+}
+
+
+OhmFactStore* ohm_fact_get_fact_store (OhmFact* self) {
+	g_return_val_if_fail (OHM_IS_FACT (self), NULL);
+	return self->priv->_fact_store;
+}
+
+
+void ohm_fact_set_fact_store (OhmFact* self, OhmFactStore* value) {
+	g_return_if_fail (OHM_IS_FACT (self));
+	self->priv->_fact_store = value;
+	if (self->priv->_fact_store != NULL) {
+		g_object_add_weak_pointer (G_OBJECT (self->priv->_fact_store), &self->priv->_fact_store);
+	}
+}
+
+
+static void ohm_fact_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmFact * self;
+	self = OHM_FACT (object);
+	switch (property_id) {
+		case OHM_FACT_FACT_STORE:
+		g_value_set_object (value, ohm_fact_get_fact_store (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_fact_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmFact * self;
+	self = OHM_FACT (object);
+	switch (property_id) {
+		case OHM_FACT_FACT_STORE:
+		ohm_fact_set_fact_store (self, g_value_get_object (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_fact_class_init (OhmFactClass * klass) {
+	ohm_fact_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmFactPrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_fact_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_fact_set_property;
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_dispose;
+	OHM_STRUCTURE_CLASS (klass)->qset = ohm_fact_real_qset;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_FACT_FACT_STORE, g_param_spec_object ("fact-store", "fact-store", "fact-store", OHM_TYPE_FACT_STORE, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE));
+}
+
+
+static void ohm_fact_init (OhmFact * self) {
+	self->priv = OHM_FACT_GET_PRIVATE (self);
+}
+
+
+static void ohm_fact_dispose (GObject * obj) {
+	OhmFact * self;
+	self = OHM_FACT (obj);
+	{
+		if (self->priv->_fact_store != NULL) {
+			g_object_remove_weak_pointer (G_OBJECT (self->priv->_fact_store), &self->priv->_fact_store);
+		}
+	}
+	G_OBJECT_CLASS (ohm_fact_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_get_type (void) {
+	static GType ohm_fact_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFact), 0, (GInstanceInitFunc) ohm_fact_init };
+		ohm_fact_type_id = g_type_register_static (OHM_TYPE_STRUCTURE, "OhmFact", &g_define_type_info, 0);
+	}
+	return ohm_fact_type_id;
+}
+
+
+static void _ohm_fact_store_update_views (OhmFactStore* self, OhmFact* fact, OhmFactStoreEvent event) {
+	GSList* patterns;
+	OhmFactStoreTransaction* _tmp0;
+	OhmFactStoreTransaction* t;
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	g_return_if_fail (OHM_IS_FACT (fact));
+	patterns = g_datalist_id_get_data (&self->priv->interest, ohm_structure_get_qname (OHM_STRUCTURE (fact)));
+	_tmp0 = NULL;
+	t = (_tmp0 = ((OhmFactStoreTransaction*) g_queue_peek_head (self->transaction)), (_tmp0 == NULL ? NULL : g_object_ref (_tmp0)));
+	if (t == NULL && g_queue_get_length (self->transaction) != 0) {
+		/* we are unrolling the transaction*/
+		(t == NULL ? NULL : (t = (g_object_unref (t), NULL)));
+		return;
+	}
+	{
+		GSList* p_collection;
+		GSList* p_it;
+		p_collection = ((GSList*) patterns);
+		for (p_it = p_collection; p_it != NULL; p_it = p_it->next) {
+			OhmPattern* _tmp3;
+			OhmPattern* p;
+			_tmp3 = NULL;
+			p = (_tmp3 = ((OhmPattern*) p_it->data), (_tmp3 == NULL ? NULL : g_object_ref (_tmp3)));
+			{
+				OhmPatternMatch* m;
+				m = ohm_pattern_match (p, fact, event);
+				if (m != NULL) {
+					ohm_fact_store_change_set_add_match (OHM_FACT_STORE_SIMPLE_VIEW (ohm_pattern_get_view (p))->change_set, m);
+					if (t != NULL) {
+						OhmFactStoreView* _tmp2;
+						OhmPatternMatch* _tmp1;
+						_tmp2 = NULL;
+						_tmp1 = NULL;
+						t->matches = g_slist_prepend (t->matches, ohm_pair_new ((_tmp1 = m, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))), (_tmp2 = ohm_pattern_get_view (p), (_tmp2 == NULL ? NULL : g_object_ref (_tmp2)))));
+					}
+				}
+				(p == NULL ? NULL : (p = (g_object_unref (p), NULL)));
+				(m == NULL ? NULL : (m = (g_object_unref (m), NULL)));
+			}
+		}
+	}
+	(t == NULL ? NULL : (t = (g_object_unref (t), NULL)));
+}
+
+
+static gboolean ohm_fact_store_insert_internal (OhmFactStore* self, OhmFact* fact) {
+	GSList* facts;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), FALSE);
+	g_return_val_if_fail (OHM_IS_FACT (fact), FALSE);
+	facts = ohm_fact_store_get_facts_by_quark (self, ohm_structure_get_qname (OHM_STRUCTURE (fact)));
+	if (ohm_fact_get_fact_store (fact) != NULL) {
+		return FALSE;
+	}
+	if (g_slist_find (facts, fact) == NULL) {
+		OhmFact* _tmp1;
+		ohm_fact_set_fact_store (fact, self);
+		_tmp1 = NULL;
+		facts = g_slist_prepend (facts, (_tmp1 = fact, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))));
+		g_object_set_qdata (G_OBJECT (self), ohm_structure_get_qname (OHM_STRUCTURE (fact)), facts);
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+/**
+ * ohm_fact_store_insert:
+ * @self: the #OhmFactStore
+ * @fact: the fact to be added to the @self fact-store. (not %NULL)
+ *
+ * Insert a @fact to the @self fact-store. The @fact will be
+ * referenced by the fact-store and can hence be unrefed by the
+ * caller. The @fact will be unrefed when it is removed or the
+ * #OhmFactStore is destroyed.
+ *
+ * The insertion is reversible if there is a transaction on-going and it
+ * is rolled back (for back-tracking purpose, for instance). In that
+ * case, the @fact is referenced by the transaction itself, and stay
+ * alive until the transaction ends.
+ *
+ * The views that match the @fact will get notified, unless the
+ * transaction is canceled in between.
+ *
+ * Returns: %TRUE on success.
+ **/
+gboolean ohm_fact_store_insert (OhmFactStore* self, OhmFact* fact) {
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), FALSE);
+	g_return_val_if_fail (OHM_IS_FACT (fact), FALSE);
+	if (ohm_fact_store_insert_internal (self, fact)) {
+		OhmFactStoreTransaction* _tmp0;
+		OhmFactStoreTransaction* t;
+		gboolean _tmp1;
+		if (g_slist_find (self->priv->known_facts_qname, GINT_TO_POINTER (ohm_structure_get_qname (OHM_STRUCTURE (fact)))) == NULL) {
+			self->priv->known_facts_qname = g_slist_prepend (self->priv->known_facts_qname, GINT_TO_POINTER (ohm_structure_get_qname (OHM_STRUCTURE (fact))));
+		}
+		_tmp0 = NULL;
+		t = (_tmp0 = ((OhmFactStoreTransaction*) g_queue_peek_head (self->transaction)), (_tmp0 == NULL ? NULL : g_object_ref (_tmp0)));
+		if (t != NULL) {
+			t->modifications = g_slist_prepend (t->modifications, ohm_fact_store_transaction_cow_new (fact, OHM_FACT_STORE_EVENT_ADDED, 0, NULL));
+		}
+		_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_ADDED);
+		g_signal_emit_by_name (G_OBJECT (self), "inserted", fact);
+		return (_tmp1 = TRUE, (t == NULL ? NULL : (t = (g_object_unref (t), NULL))), _tmp1);
+	}
+	return FALSE;
+}
+
+
+static gboolean ohm_fact_store_remove_internal (OhmFactStore* self, OhmFact* fact) {
+	GSList* facts;
+	GSList* found;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), FALSE);
+	g_return_val_if_fail (OHM_IS_FACT (fact), FALSE);
+	facts = ohm_fact_store_get_facts_by_quark (self, ohm_structure_get_qname (OHM_STRUCTURE (fact)));
+	found = g_slist_find (facts, fact);
+	if (found != NULL) {
+		facts = g_slist_delete_link (facts, found);
+		g_object_set_qdata (G_OBJECT (self), ohm_structure_get_qname (OHM_STRUCTURE (fact)), facts);
+		ohm_fact_set_fact_store (fact, NULL);
+		g_object_unref (G_OBJECT (fact));
+		return TRUE;
+	}
+	return FALSE;
+}
+
+
+/**
+ * ohm_fact_store_remove:
+ * @self: the #OhmFactStore
+ * @fact: the fact to be removed from @self fact-store. (not %NULL)
+ *
+ * Remove a @fact from the @self fact-store. The @fact will be
+ * un-referenced.
+ *
+ * The removal is reversible if there is a transaction on-going and it
+ * is rolled back (for back-tracking purpose, for instance). In that
+ * case, the @fact is referenced by the transaction itself, and stay
+ * alive until the transaction ends.
+ *
+ * The views that match the @fact will be notified, unless the
+ * transaction is canceled in between.
+ **/
+void ohm_fact_store_remove (OhmFactStore* self, OhmFact* fact) {
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	g_return_if_fail (OHM_IS_FACT (fact));
+	if (ohm_fact_store_remove_internal (self, fact)) {
+		OhmFactStoreTransaction* _tmp0;
+		OhmFactStoreTransaction* t;
+		_tmp0 = NULL;
+		t = (_tmp0 = ((OhmFactStoreTransaction*) g_queue_peek_head (self->transaction)), (_tmp0 == NULL ? NULL : g_object_ref (_tmp0)));
+		if (t != NULL) {
+			t->modifications = g_slist_prepend (t->modifications, ohm_fact_store_transaction_cow_new (fact, OHM_FACT_STORE_EVENT_REMOVED, 0, NULL));
+		}
+		_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_REMOVED);
+		g_signal_emit_by_name (G_OBJECT (self), "removed", fact);
+		(t == NULL ? NULL : (t = (g_object_unref (t), NULL)));
+	}
+}
+
+
+/**
+ * ohm_fact_store_update:
+ * @self: the #OhmFactStore
+ * @fact: the fact to be updated. (not %NULL)
+ *
+ * <note>
+ * <para>
+ * This function is used internally. You should use ohm_fact_set ()
+ * functions if you modify a fact.
+ * </para>
+ * </note>
+ *
+ * Update a @fact from the @self fact-store.
+ *
+ * The update is reversible if there is a transaction on-going and it
+ * is rolled back (for back-tracking purpose, for instance). In that
+ * case, the modification is saved by the transaction.
+ *
+ * The views that match the @fact will be notified, unless the
+ * transaction is canceled in between.
+ **/
+void ohm_fact_store_update (OhmFactStore* self, OhmFact* fact, GQuark field, GValue* value) {
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	g_return_if_fail (OHM_IS_FACT (fact));
+	_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_UPDATED);
+	g_signal_emit_by_name (G_OBJECT (self), "updated", fact, field, value);
+}
+
+
+/**
+ * ohm_fact_store_get_facts_by_quark:
+ * @self: the #OhmFactStore
+ * @qname: #GQuark name of the facts to list
+ *
+ * This function is used mostly for debugging purposes. Better use a
+ * #OhmFactStoreView, for example, although you might need it.
+ *
+ * Returns: a weak list of weak #OhmFact that have the
+ * name @qname. The caller should not free, modify or unref anything.
+ **/
+GSList* ohm_fact_store_get_facts_by_quark (OhmFactStore* self, GQuark qname) {
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), NULL);
+	return ((GSList*) g_object_get_qdata (G_OBJECT (self), qname));
+}
+
+
+/**
+ * ohm_fact_store_get_facts_by_name:
+ * @self: the #OhmFactStore
+ * @name: name of the facts to list
+ *
+ * String version of ohm_fact_store_get_facts_by_quark ().
+ *
+ * Returns: a weak list of weak #OhmFact.
+ **/
+GSList* ohm_fact_store_get_facts_by_name (OhmFactStore* self, const char* name) {
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), NULL);
+	g_return_val_if_fail (name != NULL, NULL);
+	return ((GSList*) g_object_get_data (G_OBJECT (self), name));
+}
+
+
+/**
+ * ohm_fact_store_get_facts_by_pattern:
+ * @self: the #OhmFactStore
+ * @pattern: a @pattern (not %NULL)
+ *
+ * Get the list of facts that match the #OhmPattern @pattern.
+ *
+ * Returns: a new list of #OhmFact. The caller is responsible to unref
+ * elements and free the list.
+ **/
+GSList* ohm_fact_store_get_facts_by_pattern (OhmFactStore* self, OhmPattern* pattern) {
+	GSList* facts;
+	GSList* result;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), NULL);
+	g_return_val_if_fail (OHM_IS_PATTERN (pattern), NULL);
+	facts = ((GSList*) g_object_get_qdata (G_OBJECT (self), ohm_structure_get_qname (OHM_STRUCTURE (pattern))));
+	result = NULL;
+	{
+		GSList* f_collection;
+		GSList* f_it;
+		f_collection = facts;
+		for (f_it = f_collection; f_it != NULL; f_it = f_it->next) {
+			OhmFact* _tmp1;
+			OhmFact* f;
+			_tmp1 = NULL;
+			f = (_tmp1 = ((OhmFact*) f_it->data), (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+			{
+				OhmPatternMatch* m;
+				m = ohm_pattern_match (pattern, f, OHM_FACT_STORE_EVENT_LOOKUP);
+				if (m != NULL) {
+					OhmPatternMatch* _tmp0;
+					_tmp0 = NULL;
+					result = g_slist_prepend (result, (_tmp0 = m, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))));
+				}
+				(f == NULL ? NULL : (f = (g_object_unref (f), NULL)));
+				(m == NULL ? NULL : (m = (g_object_unref (m), NULL)));
+			}
+		}
+	}
+	return result;
+}
+
+
+/**
+ * ohm_fact_store_transaction_push:
+ * @self: the #OhmFactStore
+ *
+ * Start a new transaction (on top of the previous).
+ **/
+void ohm_fact_store_transaction_push (OhmFactStore* self) {
+	OhmFactStoreTransaction* trans;
+	OhmFactStoreTransaction* _tmp0;
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	trans = ohm_fact_store_transaction_new (self, G_OBJECT (self));
+	_tmp0 = NULL;
+	g_queue_push_head (self->transaction, (_tmp0 = trans, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))));
+	(trans == NULL ? NULL : (trans = (g_object_unref (trans), NULL)));
+}
+
+
+/**
+ * ohm_fact_store_transaction_pop:
+ * @self: the #OhmFactStore
+ * @discard: wether to roll-back the transaction (%FALSE if not)
+ *
+ * Finish the top transaction and restore to the previous transaction state.
+ **/
+void ohm_fact_store_transaction_pop (OhmFactStore* self, gboolean discard) {
+	OhmFactStoreTransaction* trans;
+	OhmFactStoreTransaction* _tmp3;
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	trans = ((OhmFactStoreTransaction*) g_queue_pop_head (self->transaction));
+	g_queue_push_head (self->transaction, NULL);
+	/* just to lock any transaction system*/
+	if (discard && trans != NULL) {
+		{
+			GSList* p_collection;
+			GSList* p_it;
+			p_collection = trans->matches;
+			for (p_it = p_collection; p_it != NULL; p_it = p_it->next) {
+				OhmPair* p;
+				p = ((OhmPair*) p_it->data);
+				{
+					OhmPatternMatch* _tmp0;
+					OhmPatternMatch* m;
+					OhmFactStoreView* _tmp1;
+					OhmFactStoreView* v;
+					/* FIXME: remove weak reveal a vala loc warn bug*/
+					_tmp0 = NULL;
+					m = (_tmp0 = ((OhmPatternMatch*) p->first), (_tmp0 == NULL ? NULL : g_object_ref (_tmp0)));
+					_tmp1 = NULL;
+					v = (_tmp1 = ((OhmFactStoreView*) p->second), (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+					ohm_fact_store_change_set_remove_match (OHM_FACT_STORE_SIMPLE_VIEW (v)->change_set, m);
+					(m == NULL ? NULL : (m = (g_object_unref (m), NULL)));
+					(v == NULL ? NULL : (v = (g_object_unref (v), NULL)));
+				}
+			}
+		}
+		{
+			GSList* cow_collection;
+			GSList* cow_it;
+			cow_collection = trans->modifications;
+			for (cow_it = cow_collection; cow_it != NULL; cow_it = cow_it->next) {
+				OhmFactStoreTransactionCOW* cow;
+				cow = ((OhmFactStoreTransactionCOW*) cow_it->data);
+				{
+					gint _tmp2;
+					_tmp2 = cow->event;
+					if (_tmp2 == OHM_FACT_STORE_EVENT_ADDED)
+					do {
+						{
+							ohm_fact_store_remove_internal (self, cow->fact);
+							break;
+						}
+					} while (0); else if (_tmp2 == OHM_FACT_STORE_EVENT_REMOVED)
+					do {
+						{
+							ohm_fact_store_insert_internal (self, cow->fact);
+							break;
+						}
+					} while (0); else if (_tmp2 == OHM_FACT_STORE_EVENT_UPDATED)
+					do {
+						{
+							ohm_structure_qset (OHM_STRUCTURE (cow->fact), cow->field, cow->value);
+							break;
+						}
+					} while (0); else if (_tmp2 == OHM_FACT_STORE_EVENT_LOOKUP)
+					do {
+						{
+							g_warning ("ohm-fact.vala:803: lookup should not happen");
+							break;
+						}
+					} while (0);
+				}
+			}
+		}
+	}
+	_tmp3 = NULL;
+	_tmp3 = ((OhmFactStoreTransaction*) g_queue_pop_head (self->transaction));
+	(_tmp3 == NULL ? NULL : (_tmp3 = (g_object_unref (_tmp3), NULL)));
+	(trans == NULL ? NULL : (trans = (g_object_unref (trans), NULL)));
+}
+
+
+/* remove the transaction lock
+*
+ * ohm_fact_store_new:
+ *
+ * Use ohm_get_fact_store () instead, to get the Ohm single one.
+ * Create a new #OhmFactStore. 
+ *
+ * Returns: a new #OhmFactStore
+ **/
+OhmFactStore* ohm_fact_store_new (void) {
+	OhmFactStore * self;
+	self = g_object_newv (OHM_TYPE_FACT_STORE, 0, NULL);
+	return self;
+}
+
+
+/**
+ * ohm_fact_store_to_string:
+ * @self: the #OhmFactStore
+ *
+ * Return a debug representation of the @self fact-store.
+ *
+ * Returns: a new string to be free by the caller.
+ **/
+char* ohm_fact_store_to_string (OhmFactStore* self) {
+	char* ret;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), NULL);
+	ret = g_strdup_printf ("FactStore %p:\n\n", self);
+	{
+		GSList* q_collection;
+		GSList* q_it;
+		q_collection = self->priv->known_facts_qname;
+		for (q_it = q_collection; q_it != NULL; q_it = q_it->next) {
+			GQuark q;
+			q = GPOINTER_TO_INT (q_it->data);
+			{
+				{
+					GSList* f_collection;
+					GSList* f_it;
+					f_collection = ohm_fact_store_get_facts_by_quark (self, q);
+					for (f_it = f_collection; f_it != NULL; f_it = f_it->next) {
+						OhmFact* _tmp3;
+						OhmFact* f;
+						_tmp3 = NULL;
+						f = (_tmp3 = ((OhmFact*) f_it->data), (_tmp3 == NULL ? NULL : g_object_ref (_tmp3)));
+						{
+							char* _tmp1;
+							char* _tmp0;
+							char* _tmp2;
+							_tmp1 = NULL;
+							_tmp0 = NULL;
+							ret = (_tmp1 = g_strconcat (ret, (_tmp0 = (ohm_structure_to_string (OHM_STRUCTURE (f)))), NULL), (ret = (g_free (ret), NULL)), _tmp1);
+							_tmp0 = (g_free (_tmp0), NULL);
+							_tmp2 = NULL;
+							ret = (_tmp2 = g_strconcat (ret, ("\n"), NULL), (ret = (g_free (ret), NULL)), _tmp2);
+							(f == NULL ? NULL : (f = (g_object_unref (f), NULL)));
+						}
+					}
+				}
+			}
+		}
+	}
+	return ret;
+}
+
+
+OhmFactStoreView* ohm_fact_store_new_view (OhmFactStore* self, GObject* listener) {
+	g_return_val_if_fail (OHM_IS_FACT_STORE (self), NULL);
+	g_return_val_if_fail (listener == NULL || G_IS_OBJECT (listener), NULL);
+	return ohm_fact_store_view_new (self, listener);
+}
+
+
+static void _ohm_fact_store_delete_func (GSList* l) {
+	{
+		GSList* p_collection;
+		GSList* p_it;
+		p_collection = ((GSList*) l);
+		for (p_it = p_collection; p_it != NULL; p_it = p_it->next) {
+			OhmPattern* p;
+			p = ((OhmPattern*) p_it->data);
+			{
+				g_object_unref (G_OBJECT (p));
+			}
+		}
+	}
+	g_slist_free (l);
+}
+
+
+static void ohm_fact_store_set_view_interest (OhmFactStore* self, OhmFactStoreView* v) {
+	g_return_if_fail (OHM_IS_FACT_STORE (self));
+	g_return_if_fail (OHM_FACT_STORE_IS_VIEW (v));
+	{
+		GSList* p_collection;
+		GSList* p_it;
+		p_collection = v->patterns;
+		for (p_it = p_collection; p_it != NULL; p_it = p_it->next) {
+			OhmPattern* _tmp1;
+			OhmPattern* p;
+			_tmp1 = NULL;
+			p = (_tmp1 = ((OhmPattern*) p_it->data), (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+			{
+				GSList* patterns;
+				GSList* patts;
+				patterns = g_datalist_id_remove_no_notify (&self->priv->interest, ohm_structure_get_qname (OHM_STRUCTURE (p)));
+				patts = patterns;
+				/* FIXME...*/
+				if (g_slist_find (((gpointer) patterns), p) == NULL) {
+					OhmPattern* _tmp0;
+					ohm_pattern_set_view (p, v);
+					_tmp0 = NULL;
+					patts = g_slist_prepend (patts, (_tmp0 = p, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))));
+					/* FIXME: match now?*/
+					patterns = patts;
+				}
+				if (patterns != NULL) {
+					g_datalist_id_set_data_full (&self->priv->interest, ohm_structure_get_qname (OHM_STRUCTURE (p)), patterns, ((GDestroyNotify) _ohm_fact_store_delete_func));
+				}
+				(p == NULL ? NULL : (p = (g_object_unref (p), NULL)));
+			}
+		}
+	}
+}
+
+
+void ohm_fact_store_change_set_add_match (OhmFactStoreChangeSet* self, OhmPatternMatch* match) {
+	OhmPatternMatch* _tmp0;
+	g_return_if_fail (OHM_FACT_STORE_IS_CHANGE_SET (self));
+	g_return_if_fail (OHM_PATTERN_IS_MATCH (match));
+	_tmp0 = NULL;
+	self->priv->_matches = g_slist_prepend (self->priv->_matches, (_tmp0 = match, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))));
+}
+
+
+void ohm_fact_store_change_set_remove_match (OhmFactStoreChangeSet* self, OhmPatternMatch* match) {
+	g_return_if_fail (OHM_FACT_STORE_IS_CHANGE_SET (self));
+	g_return_if_fail (OHM_PATTERN_IS_MATCH (match));
+	self->priv->_matches = g_slist_remove (self->priv->_matches, match);
+}
+
+
+void ohm_fact_store_change_set_reset (OhmFactStoreChangeSet* self) {
+	GSList* _tmp0;
+	g_return_if_fail (OHM_FACT_STORE_IS_CHANGE_SET (self));
+	_tmp0 = NULL;
+	self->priv->_matches = (_tmp0 = NULL, (self->priv->_matches == NULL ? NULL : (self->priv->_matches = (g_slist_foreach (self->priv->_matches, ((GFunc) g_object_unref), NULL), g_slist_free (self->priv->_matches), NULL))), _tmp0);
+}
+
+
+char* ohm_fact_store_change_set_to_string (OhmFactStoreChangeSet* self) {
+	char* ret;
+	char* _tmp1;
+	char* _tmp0;
+	g_return_val_if_fail (OHM_FACT_STORE_IS_CHANGE_SET (self), NULL);
+	ret = NULL;
+	_tmp1 = NULL;
+	_tmp0 = NULL;
+	ret = (_tmp1 = g_strconcat (ret, (_tmp0 = (g_strdup_printf ("n matches: %d", g_slist_length (ohm_fact_store_change_set_get_matches (self))))), NULL), (ret = (g_free (ret), NULL)), _tmp1);
+	_tmp0 = (g_free (_tmp0), NULL);
+	return ret;
+}
+
+
+/**
+ * OhmFactStoreChangeSet:
+ *
+ * This object serves as an aggregator of the changes.
+ *
+ **/
+OhmFactStoreChangeSet* ohm_fact_store_change_set_new (void) {
+	OhmFactStoreChangeSet * self;
+	self = g_object_newv (OHM_FACT_STORE_TYPE_CHANGE_SET, 0, NULL);
+	return self;
+}
+
+
+GSList* ohm_fact_store_change_set_get_matches (OhmFactStoreChangeSet* self) {
+	g_return_val_if_fail (OHM_FACT_STORE_IS_CHANGE_SET (self), NULL);
+	return self->priv->_matches;
+}
+
+
+static void ohm_fact_store_change_set_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmFactStoreChangeSet * self;
+	self = OHM_FACT_STORE_CHANGE_SET (object);
+	switch (property_id) {
+		case OHM_FACT_STORE_CHANGE_SET_MATCHES:
+		g_value_set_pointer (value, ohm_fact_store_change_set_get_matches (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_fact_store_change_set_class_init (OhmFactStoreChangeSetClass * klass) {
+	ohm_fact_store_change_set_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmFactStoreChangeSetPrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_fact_store_change_set_get_property;
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_store_change_set_dispose;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_FACT_STORE_CHANGE_SET_MATCHES, g_param_spec_pointer ("matches", "matches", "matches", G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE));
+}
+
+
+static void ohm_fact_store_change_set_init (OhmFactStoreChangeSet * self) {
+	self->priv = OHM_FACT_STORE_CHANGE_SET_GET_PRIVATE (self);
+}
+
+
+static void ohm_fact_store_change_set_dispose (GObject * obj) {
+	OhmFactStoreChangeSet * self;
+	self = OHM_FACT_STORE_CHANGE_SET (obj);
+	(self->priv->_matches == NULL ? NULL : (self->priv->_matches = (g_slist_foreach (self->priv->_matches, ((GFunc) g_object_unref), NULL), g_slist_free (self->priv->_matches), NULL)));
+	G_OBJECT_CLASS (ohm_fact_store_change_set_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_store_change_set_get_type (void) {
+	static GType ohm_fact_store_change_set_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_change_set_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactStoreChangeSetClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_store_change_set_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFactStoreChangeSet), 0, (GInstanceInitFunc) ohm_fact_store_change_set_init };
+		ohm_fact_store_change_set_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmFactStoreChangeSet", &g_define_type_info, 0);
+	}
+	return ohm_fact_store_change_set_type_id;
+}
+
+
+/**
+ * OhmFactStoreSimpleView:
+ *
+ * The base class to implement views.
+ * You typically need #OhmFactStoreView only.
+ *
+ **/
+OhmFactStoreSimpleView* ohm_fact_store_simple_view_new (void) {
+	OhmFactStoreSimpleView * self;
+	self = g_object_newv (OHM_FACT_STORE_TYPE_SIMPLE_VIEW, 0, NULL);
+	return self;
+}
+
+
+GObject* ohm_fact_store_simple_view_get_listener (OhmFactStoreSimpleView* self) {
+	g_return_val_if_fail (OHM_FACT_STORE_IS_SIMPLE_VIEW (self), NULL);
+	return self->priv->_listener;
+}
+
+
+void ohm_fact_store_simple_view_set_listener (OhmFactStoreSimpleView* self, GObject* value) {
+	g_return_if_fail (OHM_FACT_STORE_IS_SIMPLE_VIEW (self));
+	self->priv->_listener = value;
+}
+
+
+OhmFactStore* ohm_fact_store_simple_view_get_fact_store (OhmFactStoreSimpleView* self) {
+	g_return_val_if_fail (OHM_FACT_STORE_IS_SIMPLE_VIEW (self), NULL);
+	return self->priv->_fact_store;
+}
+
+
+void ohm_fact_store_simple_view_set_fact_store (OhmFactStoreSimpleView* self, OhmFactStore* value) {
+	g_return_if_fail (OHM_FACT_STORE_IS_SIMPLE_VIEW (self));
+	self->priv->_fact_store = value;
+	g_object_add_weak_pointer (G_OBJECT (self->priv->_fact_store), &self->priv->_fact_store);
+}
+
+
+static GObject * ohm_fact_store_simple_view_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties) {
+	GObject * obj;
+	OhmFactStoreSimpleViewClass * klass;
+	GObjectClass * parent_class;
+	OhmFactStoreSimpleView * self;
+	klass = OHM_FACT_STORE_SIMPLE_VIEW_CLASS (g_type_class_peek (OHM_FACT_STORE_TYPE_SIMPLE_VIEW));
+	parent_class = G_OBJECT_CLASS (g_type_class_peek_parent (klass));
+	obj = parent_class->constructor (type, n_construct_properties, construct_properties);
+	self = OHM_FACT_STORE_SIMPLE_VIEW (obj);
+	{
+		OhmFactStoreChangeSet* _tmp0;
+		_tmp0 = NULL;
+		self->change_set = (_tmp0 = ohm_fact_store_change_set_new (), (self->change_set == NULL ? NULL : (self->change_set = (g_object_unref (self->change_set), NULL))), _tmp0);
+	}
+	return obj;
+}
+
+
+static void ohm_fact_store_simple_view_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmFactStoreSimpleView * self;
+	self = OHM_FACT_STORE_SIMPLE_VIEW (object);
+	switch (property_id) {
+		case OHM_FACT_STORE_SIMPLE_VIEW_LISTENER:
+		g_value_set_object (value, ohm_fact_store_simple_view_get_listener (self));
+		break;
+		case OHM_FACT_STORE_SIMPLE_VIEW_FACT_STORE:
+		g_value_set_object (value, ohm_fact_store_simple_view_get_fact_store (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_fact_store_simple_view_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmFactStoreSimpleView * self;
+	self = OHM_FACT_STORE_SIMPLE_VIEW (object);
+	switch (property_id) {
+		case OHM_FACT_STORE_SIMPLE_VIEW_LISTENER:
+		ohm_fact_store_simple_view_set_listener (self, g_value_get_object (value));
+		break;
+		case OHM_FACT_STORE_SIMPLE_VIEW_FACT_STORE:
+		ohm_fact_store_simple_view_set_fact_store (self, g_value_get_object (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_fact_store_simple_view_class_init (OhmFactStoreSimpleViewClass * klass) {
+	ohm_fact_store_simple_view_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmFactStoreSimpleViewPrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_fact_store_simple_view_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_fact_store_simple_view_set_property;
+	G_OBJECT_CLASS (klass)->constructor = ohm_fact_store_simple_view_constructor;
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_store_simple_view_dispose;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_FACT_STORE_SIMPLE_VIEW_LISTENER, g_param_spec_object ("listener", "listener", "listener", G_TYPE_OBJECT, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_FACT_STORE_SIMPLE_VIEW_FACT_STORE, g_param_spec_object ("fact-store", "fact-store", "fact-store", OHM_TYPE_FACT_STORE, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
+	g_signal_new ("updated", OHM_FACT_STORE_TYPE_SIMPLE_VIEW, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__OBJECT, G_TYPE_NONE, 1, OHM_FACT_STORE_TYPE_CHANGE_SET);
+}
+
+
+static void ohm_fact_store_simple_view_init (OhmFactStoreSimpleView * self) {
+	self->priv = OHM_FACT_STORE_SIMPLE_VIEW_GET_PRIVATE (self);
+	self->priv->_listener = NULL;
+}
+
+
+static void ohm_fact_store_simple_view_dispose (GObject * obj) {
+	OhmFactStoreSimpleView * self;
+	self = OHM_FACT_STORE_SIMPLE_VIEW (obj);
+	{
+		if (self->priv->_fact_store != NULL) {
+			g_object_remove_weak_pointer (G_OBJECT (self->priv->_fact_store), &self->priv->_fact_store);
+		}
+	}
+	(self->change_set == NULL ? NULL : (self->change_set = (g_object_unref (self->change_set), NULL)));
+	G_OBJECT_CLASS (ohm_fact_store_simple_view_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_store_simple_view_get_type (void) {
+	static GType ohm_fact_store_simple_view_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_simple_view_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactStoreSimpleViewClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_store_simple_view_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFactStoreSimpleView), 0, (GInstanceInitFunc) ohm_fact_store_simple_view_init };
+		ohm_fact_store_simple_view_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmFactStoreSimpleView", &g_define_type_info, 0);
+	}
+	return ohm_fact_store_simple_view_type_id;
+}
+
+
+static OhmFactStoreTransaction* ohm_fact_store_transaction_new (OhmFactStore* fact_store, GObject* listener) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmFactStoreTransaction * self;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (fact_store), NULL);
+	g_return_val_if_fail (G_IS_OBJECT (listener), NULL);
+	__params = g_new0 (GParameter, 2);
+	__params_it = __params;
+	__params_it->name = "fact-store";
+	g_value_init (&__params_it->value, OHM_TYPE_FACT_STORE);
+	g_value_set_object (&__params_it->value, fact_store);
+	__params_it++;
+	__params_it->name = "listener";
+	g_value_init (&__params_it->value, G_TYPE_OBJECT);
+	g_value_set_object (&__params_it->value, listener);
+	__params_it++;
+	self = g_object_newv (OHM_FACT_STORE_TYPE_TRANSACTION, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+OhmFactStoreTransactionCOW* ohm_fact_store_transaction_cow_new (OhmFact* fact, OhmFactStoreEvent event, GQuark field, GValue* value) {
+	OhmFactStoreTransactionCOW* self;
+	OhmFact* _tmp1;
+	OhmFact* _tmp0;
+	g_return_val_if_fail (OHM_IS_FACT (fact), NULL);
+	self = g_slice_new0 (OhmFactStoreTransactionCOW);
+	_tmp1 = NULL;
+	_tmp0 = NULL;
+	self->fact = (_tmp1 = (_tmp0 = fact, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))), (self->fact == NULL ? NULL : (self->fact = (g_object_unref (self->fact), NULL))), _tmp1);
+	self->event = ((gint) event);
+	self->field = field;
+	self->value = value;
+	return self;
+}
+
+
+void ohm_fact_store_transaction_cow_free (OhmFactStoreTransactionCOW* self) {
+	(self->fact == NULL ? NULL : (self->fact = (g_object_unref (self->fact), NULL)));
+	g_slice_free (OhmFactStoreTransactionCOW, self);
+}
+
+
+static void ohm_fact_store_transaction_class_init (OhmFactStoreTransactionClass * klass) {
+	ohm_fact_store_transaction_parent_class = g_type_class_peek_parent (klass);
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_store_transaction_dispose;
+}
+
+
+static void ohm_fact_store_transaction_init (OhmFactStoreTransaction * self) {
+}
+
+
+static void ohm_fact_store_transaction_dispose (GObject * obj) {
+	OhmFactStoreTransaction * self;
+	self = OHM_FACT_STORE_TRANSACTION (obj);
+	(self->matches == NULL ? NULL : (self->matches = (g_slist_foreach (self->matches, ((GFunc) ohm_pair_free), NULL), g_slist_free (self->matches), NULL)));
+	(self->modifications == NULL ? NULL : (self->modifications = (g_slist_foreach (self->modifications, ((GFunc) ohm_fact_store_transaction_cow_free), NULL), g_slist_free (self->modifications), NULL)));
+	G_OBJECT_CLASS (ohm_fact_store_transaction_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_store_transaction_get_type (void) {
+	static GType ohm_fact_store_transaction_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_transaction_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactStoreTransactionClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_store_transaction_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFactStoreTransaction), 0, (GInstanceInitFunc) ohm_fact_store_transaction_init };
+		ohm_fact_store_transaction_type_id = g_type_register_static (OHM_FACT_STORE_TYPE_SIMPLE_VIEW, "OhmFactStoreTransaction", &g_define_type_info, 0);
+	}
+	return ohm_fact_store_transaction_type_id;
+}
+
+
+static OhmFactStoreView* ohm_fact_store_view_new (OhmFactStore* fact_store, GObject* listener) {
+	GParameter * __params;
+	GParameter * __params_it;
+	OhmFactStoreView * self;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (fact_store), NULL);
+	g_return_val_if_fail (listener == NULL || G_IS_OBJECT (listener), NULL);
+	__params = g_new0 (GParameter, 2);
+	__params_it = __params;
+	__params_it->name = "fact-store";
+	g_value_init (&__params_it->value, OHM_TYPE_FACT_STORE);
+	g_value_set_object (&__params_it->value, fact_store);
+	__params_it++;
+	__params_it->name = "listener";
+	g_value_init (&__params_it->value, G_TYPE_OBJECT);
+	g_value_set_object (&__params_it->value, listener);
+	__params_it++;
+	self = g_object_newv (OHM_FACT_STORE_TYPE_VIEW, __params_it - __params, __params);
+	while (__params_it > __params) {
+		--__params_it;
+		g_value_unset (&__params_it->value);
+	}
+	g_free (__params);
+	return self;
+}
+
+
+void ohm_fact_store_view_add (OhmFactStoreView* self, OhmStructure* interest) {
+	g_return_if_fail (OHM_FACT_STORE_IS_VIEW (self));
+	g_return_if_fail (OHM_IS_STRUCTURE (interest));
+	if (OHM_IS_FACT (interest)) {
+		OhmPattern* v;
+		OhmPattern* _tmp0;
+		v = ohm_pattern_new_for_fact (OHM_FACT (interest));
+		_tmp0 = NULL;
+		self->patterns = g_slist_prepend (self->patterns, (_tmp0 = v, (_tmp0 == NULL ? NULL : g_object_ref (_tmp0))));
+		(v == NULL ? NULL : (v = (g_object_unref (v), NULL)));
+	}
+	if (OHM_IS_PATTERN (interest)) {
+		if (g_slist_find (self->patterns, interest) == NULL) {
+			OhmStructure* _tmp1;
+			_tmp1 = NULL;
+			self->patterns = g_slist_prepend (self->patterns, (_tmp1 = interest, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))));
+		}
+	}
+	ohm_fact_store_set_view_interest (ohm_fact_store_simple_view_get_fact_store (OHM_FACT_STORE_SIMPLE_VIEW (self)), self);
+}
+
+
+void ohm_fact_store_view_remove (OhmFactStoreView* self, OhmStructure* interest) {
+	g_return_if_fail (OHM_FACT_STORE_IS_VIEW (self));
+	g_return_if_fail (OHM_IS_STRUCTURE (interest));
+	if (OHM_IS_FACT (interest)) {
+		g_message ("ohm-fact.vala:974: not implemented");
+	}
+	if (OHM_IS_PATTERN (interest)) {
+		self->patterns = g_slist_remove_all (self->patterns, interest);
+	}
+	ohm_fact_store_set_view_interest (ohm_fact_store_simple_view_get_fact_store (OHM_FACT_STORE_SIMPLE_VIEW (self)), self);
+}
+
+
+char* ohm_fact_store_view_to_string (OhmFactStoreView* self) {
+	char* ret;
+	char* _tmp1;
+	char* _tmp0;
+	char* _tmp3;
+	char* _tmp2;
+	char* _tmp5;
+	char* _tmp4;
+	char* _tmp8;
+	char* _tmp7;
+	char* _tmp6;
+	g_return_val_if_fail (OHM_FACT_STORE_IS_VIEW (self), NULL);
+	ret = NULL;
+	_tmp1 = NULL;
+	_tmp0 = NULL;
+	ret = (_tmp1 = g_strconcat (ret, (_tmp0 = (g_strdup_printf ("listener: %p, ", ohm_fact_store_simple_view_get_listener (OHM_FACT_STORE_SIMPLE_VIEW (self))))), NULL), (ret = (g_free (ret), NULL)), _tmp1);
+	_tmp0 = (g_free (_tmp0), NULL);
+	_tmp3 = NULL;
+	_tmp2 = NULL;
+	ret = (_tmp3 = g_strconcat (ret, (_tmp2 = (g_strdup_printf ("factstore: %p", ohm_fact_store_simple_view_get_fact_store (OHM_FACT_STORE_SIMPLE_VIEW (self))))), NULL), (ret = (g_free (ret), NULL)), _tmp3);
+	_tmp2 = (g_free (_tmp2), NULL);
+	_tmp5 = NULL;
+	_tmp4 = NULL;
+	ret = (_tmp5 = g_strconcat (ret, (_tmp4 = (g_strdup_printf ("patterns: %d", g_slist_length (self->patterns)))), NULL), (ret = (g_free (ret), NULL)), _tmp5);
+	_tmp4 = (g_free (_tmp4), NULL);
+	_tmp8 = NULL;
+	_tmp7 = NULL;
+	_tmp6 = NULL;
+	ret = (_tmp8 = g_strconcat (ret, (_tmp7 = (g_strdup_printf ("changeset: %s", (_tmp6 = ohm_fact_store_change_set_to_string (OHM_FACT_STORE_SIMPLE_VIEW (self)->change_set))))), NULL), (ret = (g_free (ret), NULL)), _tmp8);
+	_tmp7 = (g_free (_tmp7), NULL);
+	_tmp6 = (g_free (_tmp6), NULL);
+	return ret;
+}
+
+
+static void ohm_fact_store_view_class_init (OhmFactStoreViewClass * klass) {
+	ohm_fact_store_view_parent_class = g_type_class_peek_parent (klass);
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_store_view_dispose;
+}
+
+
+static void ohm_fact_store_view_init (OhmFactStoreView * self) {
+}
+
+
+static void ohm_fact_store_view_dispose (GObject * obj) {
+	OhmFactStoreView * self;
+	self = OHM_FACT_STORE_VIEW (obj);
+	(self->patterns == NULL ? NULL : (self->patterns = (g_slist_foreach (self->patterns, ((GFunc) g_object_unref), NULL), g_slist_free (self->patterns), NULL)));
+	G_OBJECT_CLASS (ohm_fact_store_view_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_store_view_get_type (void) {
+	static GType ohm_fact_store_view_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_view_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactStoreViewClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_store_view_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFactStoreView), 0, (GInstanceInitFunc) ohm_fact_store_view_init };
+		ohm_fact_store_view_type_id = g_type_register_static (OHM_FACT_STORE_TYPE_SIMPLE_VIEW, "OhmFactStoreView", &g_define_type_info, 0);
+	}
+	return ohm_fact_store_view_type_id;
+}
+
+
+
+GType ohm_fact_store_event_get_type (void) {
+	static GType ohm_fact_store_event_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_event_type_id == 0)) {
+		static const GEnumValue values[] = {{OHM_FACT_STORE_EVENT_ADDED, "OHM_FACT_STORE_EVENT_ADDED", "added"}, {OHM_FACT_STORE_EVENT_REMOVED, "OHM_FACT_STORE_EVENT_REMOVED", "removed"}, {OHM_FACT_STORE_EVENT_UPDATED, "OHM_FACT_STORE_EVENT_UPDATED", "updated"}, {OHM_FACT_STORE_EVENT_LOOKUP, "OHM_FACT_STORE_EVENT_LOOKUP", "lookup"}, {0, NULL, NULL}};
+		ohm_fact_store_event_type_id = g_enum_register_static ("OhmFactStoreEvent", values);
+	}
+	return ohm_fact_store_event_type_id;
+}
+
+
+static void ohm_fact_store_class_init (OhmFactStoreClass * klass) {
+	ohm_fact_store_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmFactStorePrivate));
+	G_OBJECT_CLASS (klass)->dispose = ohm_fact_store_dispose;
+	g_signal_new ("inserted", OHM_TYPE_FACT_STORE, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__OBJECT, G_TYPE_NONE, 1, OHM_TYPE_FACT);
+	g_signal_new ("removed", OHM_TYPE_FACT_STORE, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_marshal_VOID__OBJECT, G_TYPE_NONE, 1, OHM_TYPE_FACT);
+	g_signal_new ("updated", OHM_TYPE_FACT_STORE, G_SIGNAL_RUN_LAST, 0, NULL, NULL, g_cclosure_user_marshal_VOID__OBJECT_UINT_POINTER, G_TYPE_NONE, 3, OHM_TYPE_FACT, G_TYPE_UINT, G_TYPE_POINTER);
+}
+
+
+static void ohm_fact_store_init (OhmFactStore * self) {
+	self->priv = OHM_FACT_STORE_GET_PRIVATE (self);
+	self->priv->known_facts_qname = NULL;
+	self->transaction = g_queue_new ();
+}
+
+
+static void ohm_fact_store_dispose (GObject * obj) {
+	OhmFactStore * self;
+	self = OHM_FACT_STORE (obj);
+	{
+		/* Hackish, will be fixed in vala*/
+		{
+			GSList* q_collection;
+			GSList* q_it;
+			q_collection = self->priv->known_facts_qname;
+			for (q_it = q_collection; q_it != NULL; q_it = q_it->next) {
+				GQuark q;
+				q = GPOINTER_TO_INT (q_it->data);
+				{
+					GSList* facts;
+					{
+						GSList* facts;
+						facts = ohm_fact_store_get_facts_by_quark (self, q);
+						{
+							GSList* f_collection;
+							GSList* f_it;
+							f_collection = facts;
+							for (f_it = f_collection; f_it != NULL; f_it = f_it->next) {
+								OhmFact* f;
+								f = ((OhmFact*) f_it->data);
+								{
+									g_object_unref (G_OBJECT (f));
+								}
+							}
+						}
+					}
+					facts = g_object_get_qdata (G_OBJECT (self), q);
+					g_slist_free (facts);
+				}
+			}
+		}
+		/*interest.foreach ((DataForeachFunc)_delete_func);*/
+		g_datalist_clear (&self->priv->interest);
+	}
+	(self->priv->known_facts_qname == NULL ? NULL : (self->priv->known_facts_qname = (g_slist_free (self->priv->known_facts_qname), NULL)));
+	(self->transaction == NULL ? NULL : (self->transaction = (g_queue_free (self->transaction), NULL)));
+	G_OBJECT_CLASS (ohm_fact_store_parent_class)->dispose (obj);
+}
+
+
+GType ohm_fact_store_get_type (void) {
+	static GType ohm_fact_store_type_id = 0;
+	if (G_UNLIKELY (ohm_fact_store_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmFactStoreClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_fact_store_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmFactStore), 0, (GInstanceInitFunc) ohm_fact_store_init };
+		ohm_fact_store_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmFactStore", &g_define_type_info, 0);
+	}
+	return ohm_fact_store_type_id;
+}
+
+
+OhmRule* ohm_rule_fixme (GType type, OhmFactStore* fact_store) {
+	OhmRule* r;
+	g_return_val_if_fail (OHM_IS_FACT_STORE (fact_store), NULL);
+	if (!g_type_is_a (type, OHM_TYPE_RULE)) {
+		return NULL;
+	}
+	r = OHM_RULE (g_object_new (type, "view", NULL, "fact-store", fact_store, NULL));
+	return r;
+}
+
+
+void ohm_rule_fire (OhmRule* self, OhmFactStoreChangeSet* change_set) {
+	OHM_RULE_GET_CLASS (self)->fire (self, change_set);
+}
+
+
+char* ohm_rule_to_string (OhmRule* self) {
+	char* ret;
+	g_return_val_if_fail (OHM_IS_RULE (self), NULL);
+	ret = NULL;
+	/* ret += "Rule %s".printf (); + FIXME set the name*/
+	if (self->priv->_view != NULL) {
+		char* _tmp2;
+		char* _tmp1;
+		char* _tmp0;
+		_tmp2 = NULL;
+		_tmp1 = NULL;
+		_tmp0 = NULL;
+		ret = (_tmp2 = g_strconcat (ret, (_tmp1 = (g_strdup_printf ("view: %s, ", (_tmp0 = ohm_fact_store_view_to_string (self->priv->_view))))), NULL), (ret = (g_free (ret), NULL)), _tmp2);
+		_tmp1 = (g_free (_tmp1), NULL);
+		_tmp0 = (g_free (_tmp0), NULL);
+	}
+	return ret;
+}
+
+
+OhmRule* ohm_rule_new (void) {
+	OhmRule * self;
+	self = g_object_newv (OHM_TYPE_RULE, 0, NULL);
+	return self;
+}
+
+
+OhmFactStoreView* ohm_rule_get_view (OhmRule* self) {
+	g_return_val_if_fail (OHM_IS_RULE (self), NULL);
+	return self->priv->_view;
+}
+
+
+void ohm_rule_set_view (OhmRule* self, OhmFactStoreView* value) {
+	OhmFactStoreView* _tmp2;
+	OhmFactStoreView* _tmp1;
+	g_return_if_fail (OHM_IS_RULE (self));
+	_tmp2 = NULL;
+	_tmp1 = NULL;
+	self->priv->_view = (_tmp2 = (_tmp1 = value, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1))), (self->priv->_view == NULL ? NULL : (self->priv->_view = (g_object_unref (self->priv->_view), NULL))), _tmp2);
+}
+
+
+void ohm_rule_set_fact_store (OhmRule* self, OhmFactStore* value) {
+	OhmFactStoreView* _tmp0;
+	g_return_if_fail (OHM_IS_RULE (self));
+	_tmp0 = NULL;
+	ohm_rule_set_view (self, (_tmp0 = ohm_fact_store_new_view (value, G_OBJECT (self))));
+	(_tmp0 == NULL ? NULL : (_tmp0 = (g_object_unref (_tmp0), NULL)));
+}
+
+
+static void ohm_rule_get_property (GObject * object, guint property_id, GValue * value, GParamSpec * pspec) {
+	OhmRule * self;
+	self = OHM_RULE (object);
+	switch (property_id) {
+		case OHM_RULE_VIEW:
+		g_value_set_object (value, ohm_rule_get_view (self));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_rule_set_property (GObject * object, guint property_id, const GValue * value, GParamSpec * pspec) {
+	OhmRule * self;
+	self = OHM_RULE (object);
+	switch (property_id) {
+		case OHM_RULE_VIEW:
+		ohm_rule_set_view (self, g_value_get_object (value));
+		break;
+		case OHM_RULE_FACT_STORE:
+		ohm_rule_set_fact_store (self, g_value_get_object (value));
+		break;
+		default:
+		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+		break;
+	}
+}
+
+
+static void ohm_rule_class_init (OhmRuleClass * klass) {
+	ohm_rule_parent_class = g_type_class_peek_parent (klass);
+	g_type_class_add_private (klass, sizeof (OhmRulePrivate));
+	G_OBJECT_CLASS (klass)->get_property = ohm_rule_get_property;
+	G_OBJECT_CLASS (klass)->set_property = ohm_rule_set_property;
+	G_OBJECT_CLASS (klass)->dispose = ohm_rule_dispose;
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_RULE_VIEW, g_param_spec_object ("view", "view", "view", OHM_FACT_STORE_TYPE_VIEW, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
+	g_object_class_install_property (G_OBJECT_CLASS (klass), OHM_RULE_FACT_STORE, g_param_spec_object ("fact-store", "fact-store", "fact-store", OHM_TYPE_FACT_STORE, G_PARAM_STATIC_NAME | G_PARAM_STATIC_NICK | G_PARAM_STATIC_BLURB | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT));
+}
+
+
+static void ohm_rule_init (OhmRule * self) {
+	self->priv = OHM_RULE_GET_PRIVATE (self);
+}
+
+
+static void ohm_rule_dispose (GObject * obj) {
+	OhmRule * self;
+	self = OHM_RULE (obj);
+	(self->priv->_view == NULL ? NULL : (self->priv->_view = (g_object_unref (self->priv->_view), NULL)));
+	G_OBJECT_CLASS (ohm_rule_parent_class)->dispose (obj);
+}
+
+
+GType ohm_rule_get_type (void) {
+	static GType ohm_rule_type_id = 0;
+	if (G_UNLIKELY (ohm_rule_type_id == 0)) {
+		static const GTypeInfo g_define_type_info = { sizeof (OhmRuleClass), (GBaseInitFunc) NULL, (GBaseFinalizeFunc) NULL, (GClassInitFunc) ohm_rule_class_init, (GClassFinalizeFunc) NULL, NULL, sizeof (OhmRule), 0, (GInstanceInitFunc) ohm_rule_init };
+		ohm_rule_type_id = g_type_register_static (G_TYPE_OBJECT, "OhmRule", &g_define_type_info, G_TYPE_FLAG_ABSTRACT);
+	}
+	return ohm_rule_type_id;
+}
+
+
+OhmFactStore* ohm_get_fact_store (void) {
+	OhmFactStore* _tmp1;
+	if (ohm_fs == NULL) {
+		OhmFactStore* _tmp0;
+		_tmp0 = NULL;
+		ohm_fs = (_tmp0 = ohm_fact_store_new (), (ohm_fs == NULL ? NULL : (ohm_fs = (g_object_unref (ohm_fs), NULL))), _tmp0);
+	}
+	_tmp1 = NULL;
+	return (_tmp1 = ohm_fs, (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+}
+
+
+GValue* ohm_value_from_string (const char* str) {
+	GValue* value;
+	g_return_val_if_fail (str != NULL, NULL);
+	value = g_new0 (GValue, 1);
+	g_value_init (value, G_TYPE_STRING);
+	g_value_set_string (value, str);
+	return value;
+}
+
+
+GValue* ohm_value_from_int (gint val) {
+	GValue* value;
+	value = g_new0 (GValue, 1);
+	g_value_init (value, G_TYPE_INT);
+	g_value_set_int (value, val);
+	return value;
+}
+
+
+GValue ohm_value_from_structure (OhmStructure* val) {
+	GValue _tmp0 = {0};
+	GValue value;
+	0;
+	value = (g_value_init (&_tmp0, OHM_TYPE_STRUCTURE), _tmp0);
+	g_value_set_object (&value, G_OBJECT (val));
+	return value;
+}
+
+
+GValue ohm_value_from_fact (OhmFact* val) {
+	GValue _tmp0 = {0};
+	GValue value;
+	0;
+	value = (g_value_init (&_tmp0, OHM_TYPE_FACT), _tmp0);
+	g_value_set_object (&value, G_OBJECT (val));
+	return value;
+}
+
+
+gint ohm_value_cmp (GValue* v1, GValue* v2) {
+	if (&(*v1) == &(*v2)) {
+		return 0;
+	}
+	g_assert (G_VALUE_TYPE (&(*v1)) == G_VALUE_TYPE (&(*v2)));
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_INT) {
+		return g_value_get_int (&(*v2)) - g_value_get_int (&(*v1));
+	}
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_STRING) {
+		return strcmp (g_value_get_string (&(*v1)), g_value_get_string (&(*v2)));
+	}
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_BOOLEAN) {
+		return ((gint) (g_value_get_boolean (&(*v1)) == g_value_get_boolean (&(*v2))));
+	}
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_CHAR) {
+		return ((gint) g_value_get_char (&(*v2)) - g_value_get_char (&(*v1)));
+	}
+	/*   if (v1.type () == typeof (double))
+	     return v2.get_double () - v1.get_double ();
+	   if (v1.type () == Type.ENUM)
+	     return (int) (v1.get_enum () == v2.get_enum ());
+	   if (v1.type () == Type.FLAGS)
+	     return (int) (v1.get_flags () == v2.get_flags ());*/
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_NONE) {
+		return ((gint) (g_value_get_pointer (&(*v1)) == g_value_get_pointer (&(*v2))));
+	}
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_OBJECT) {
+		return ((gint) (g_value_get_object (&(*v1)) == g_value_get_object (&(*v2))));
+	}
+	if (G_VALUE_TYPE (&(*v1)) == G_TYPE_BOXED) {
+		return ((gint) (g_value_get_boxed (&(*v1)) == g_value_get_boxed (&(*v2))));
+	}
+	return 0;
+}
+
+
+OhmStructure* ohm_value_get_structure (GValue* value) {
+	OhmStructure* _tmp1;
+	if (!G_VALUE_HOLDS (&(*value), OHM_TYPE_STRUCTURE)) {
+		return NULL;
+	}
+	_tmp1 = NULL;
+	return (_tmp1 = OHM_STRUCTURE (g_value_get_object (&(*value))), (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+}
+
+
+OhmFact* ohm_value_get_fact (GValue* value) {
+	OhmFact* _tmp1;
+	if (!G_VALUE_HOLDS (&(*value), OHM_TYPE_FACT)) {
+		return NULL;
+	}
+	_tmp1 = NULL;
+	return (_tmp1 = OHM_FACT (g_value_get_object (&(*value))), (_tmp1 == NULL ? NULL : g_object_ref (_tmp1)));
+}
+
+
+
+static void g_cclosure_user_marshal_VOID__OBJECT_UINT_POINTER (GClosure * closure, GValue * return_value, guint n_param_values, const GValue * param_values, gpointer invocation_hint, gpointer marshal_data) {
+	typedef void (*GMarshalFunc_VOID__OBJECT_UINT_POINTER) (gpointer data1, gpointer arg_1, GQuark arg_2, gpointer arg_3, gpointer data2);
+	register GMarshalFunc_VOID__OBJECT_UINT_POINTER callback;
+	register GCClosure * cc;
+	register gpointer data1, data2;
+	cc = ((GCClosure *) closure);
+	g_return_if_fail (n_param_values == 4);
+	if (G_CCLOSURE_SWAP_DATA (closure)) {
+		data1 = closure->data;
+		data2 = param_values->data[0].v_pointer;
+	} else {
+		data1 = param_values->data[0].v_pointer;
+		data2 = closure->data;
+	}
+	callback = ((GMarshalFunc_VOID__OBJECT_UINT_POINTER) (marshal_data ? marshal_data : cc->callback));
+	callback (data1, g_value_get_object (param_values + 1), g_value_get_uint (param_values + 2), g_value_get_pointer (param_values + 3), data2);
+}
+
+
+

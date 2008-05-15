@@ -45,7 +45,7 @@ list_length(term_t pl_list)
 static int
 get_field_names(context_t *ctx, term_t pl_fields)
 {
-#define MAX_NAME 64                             /* max length of a field name */
+#define MAX_LENGTH 64                           /* max length of a field name */
 
     term_t  pl_list, pl_head;
     int     i, n, left;
@@ -56,14 +56,14 @@ get_field_names(context_t *ctx, term_t pl_fields)
     if ((n = list_length(pl_fields)) < 0)
         return EINVAL;
 
-    size = (n + 1) * sizeof(char *) + n * MAX_NAME;
+    size = n * sizeof(ctx->fields[0]) + n * MAX_LENGTH;
     if ((ctx->fields = malloc(size)) == NULL)
         return ENOMEM;
     memset(ctx->fields, 0, size);
     ctx->nfield = n;
 
-    p    = ((char *)ctx->fields) + (n + 1) * sizeof(ctx->fields[0]);
-    left = size - (n + 1) * sizeof(ctx->fields[0]);
+    p    = ((char *)ctx->fields) + n * sizeof(ctx->fields[0]);
+    left = size - n * sizeof(ctx->fields[0]);
 
     pl_list = PL_copy_term_ref(pl_fields);      /* XXX is this really needed? */
     pl_head = PL_new_term_ref();
@@ -120,10 +120,10 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
 
 
 /********************
- * list_of_values
+ * fact_values
  ********************/
 static int
-list_of_values(context_t *ctx, OhmFact *fact, term_t *pl_values)
+fact_values(context_t *ctx, OhmFact *fact, term_t *pl_values)
 {
     int     n    = ctx->nfield;
     term_t  list = PL_new_term_ref();
@@ -151,18 +151,17 @@ pl_fact_exists(term_t pl_name,
                term_t pl_fields, term_t pl_list, control_t handle)
 {
     context_t  *ctx;
-    char       *name, factname[128];
+    char       *name, factname[64];
     fid_t       frame;
     term_t      pl_values;
-
-    GSList     *l;
     OhmFact    *f;
     
     switch (PL_foreign_control(handle)) {
     case PL_FIRST_CALL:
         if (!PL_is_list(pl_list) || !PL_get_chars(pl_name, &name, CVT_ALL))
             PL_fail;
-        
+        strcpy(factname, name);
+
         if ((ctx = malloc(sizeof(*ctx))) == NULL)
             PL_fail;
         memset(ctx, 0, sizeof(*ctx));
@@ -172,7 +171,6 @@ pl_fact_exists(term_t pl_name,
             PL_fail;
         }
         
-        strcpy(factname, name);
         ctx->store = ohm_fact_store_get_fact_store();
         ctx->facts = ohm_fact_store_get_facts_by_name(ctx->store, factname);
         break;
@@ -191,20 +189,15 @@ pl_fact_exists(term_t pl_name,
 
 
     frame = PL_open_foreign_frame();
-    l = ctx->facts;
-    while (l != NULL) {
-        f = (OhmFact *)l->data;
-        ctx->facts = l = g_slist_next(l);
+    while (ctx->facts != NULL) {
+        f = (OhmFact *)ctx->facts->data;
+        ctx->facts = g_slist_next(ctx->facts);
 
-        if (list_of_values(ctx, f, &pl_values)) {
-            PL_close_foreign_frame(frame);
-            goto nomore;
-        }
-        
-        if (PL_unify(pl_list, pl_values)) {
+        if (!fact_values(ctx, f, &pl_values) && PL_unify(pl_list, pl_values)) {
             PL_close_foreign_frame(frame);
             PL_retry_address(ctx);
         }
+        
         PL_rewind_foreign_frame(frame);
     }
     PL_close_foreign_frame(frame);

@@ -6,8 +6,6 @@
 
 #include <prolog/factmap.h>
 
-#define NEW_OHMFACT_BROKEN
-
 #define ACCESSORIES   "accessories"
 #define ACCESSORY_KEY "com.nokia.policy.accessories"
 #define DEVICE        "device"
@@ -28,7 +26,7 @@ main(int argc, char *argv[])
     OhmFactStore     *store;
     OhmFact          *fact;
     OhmFactStoreView *view;
-#ifndef NEW_OHMFACT_BROKEN
+#ifdef NEW_OHMFACT
     OhmFactStoreSimpleView *sv;
     GValue                 *dev, *state, *d;
 #else
@@ -51,14 +49,16 @@ main(int argc, char *argv[])
   
     if ((map = factmap_create(store, ACCESSORIES, ACCESSORY_KEY, fields,
                               NULL, NULL)) == NULL)
-        fatal(3, "failed to create factmap for %s", ACCESSORIES);
-  
+        fatal(3, "failed to create factmap for %s", ACCESSORIES);  
+
     factmap_dump(map);
 
     pattern = ohm_pattern_new(ACCESSORY_KEY);
 
-#ifndef NEW_OHMFACT_BROKEN
+#ifdef NEW_OHMFACT
     ohm_fact_store_view_add(map->view, OHM_STRUCTURE(pattern));
+    pattern = ohm_pattern_new(ACCESSORY_KEY);
+    ohm_fact_store_view_add(view, OHM_STRUCTURE(pattern));
 #else
     l = g_slist_prepend(NULL, pattern);
     ohm_fact_store_view_set_interested(view, l);
@@ -68,16 +68,17 @@ main(int argc, char *argv[])
         fact  = ohm_fact_new(ACCESSORY_KEY);
         dev   = ohm_value_from_string(*acc);
         state = ohm_value_from_int(1);
-#ifndef NEW_OHMFACT_BROKEN
+
+        if (!ohm_fact_store_insert(store, fact))
+            fatal(2, "failed to add device %s to fact store", *acc);
+
+#ifdef NEW_OHMFACT
         ohm_fact_set(fact, DEVICE, dev);
         ohm_fact_set(fact, STATE, state);
 #else
         ohm_fact_set(fact, DEVICE, &dev);
         ohm_fact_set(fact, STATE, &state);
 #endif
-        if (!ohm_fact_store_insert(store, fact))
-            fatal(2, "failed to add device %s to fact store", *acc);
-
         factmap_update(map);
         factmap_dump(map);
     }
@@ -94,7 +95,7 @@ main(int argc, char *argv[])
         printf("got accessory %s\n", g_value_get_string(d));
     }
 
-#ifndef NEW_OHMFACT_BROKEN
+#ifdef NEW_OHMFACT
     sv = OHM_FACT_STORE_SIMPLE_VIEW(view);
     matches = ohm_fact_store_change_set_get_matches(sv->change_set);
 #else

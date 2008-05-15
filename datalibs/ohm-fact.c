@@ -18,7 +18,7 @@ static void ohm_structure_real_qset (OhmStructure* self, GQuark field, GValue* v
 static void _ohm_structure_value_to_string_gvalue_transform (GValue* src_value, GValue* dest_value);
 static GObject * ohm_structure_constructor (GType type, guint n_construct_properties, GObjectConstructParam * construct_properties);
 static gpointer ohm_structure_parent_class = NULL;
-static void ohm_structure_dispose (GObject *obj);
+static void ohm_structure_dispose (GObject * obj);
 struct _OhmPatternPrivate {
 	OhmFactStoreView* _view;
 };
@@ -839,7 +839,9 @@ gboolean ohm_fact_store_insert (OhmFactStore* self, OhmFact* fact) {
 			self->priv->facts = g_list_prepend (self->priv->facts, ohm_structure_get_qname (OHM_STRUCTURE (fact)));
 		}
 		g_signal_emit_by_name (G_OBJECT (self), "inserted", fact);
+#if 0
 		_ohm_fact_store_update_views (self, fact, OHM_FACT_STORE_EVENT_ADDED);
+#endif
 		return TRUE;
 	}
 	return FALSE;
