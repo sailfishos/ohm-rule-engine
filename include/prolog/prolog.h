@@ -1,5 +1,5 @@
-#ifndef PROLOG_H_INCLUDED
-#define PROLOG_H_INCLUDED
+#ifndef __PROLOG_H__
+#define __PROLOG_H__
 
 #include <SWI-Prolog.h>
 
@@ -79,9 +79,15 @@ int  prolog_load_file     (char *path);
 prolog_predicate_t *prolog_predicates(char *query);
 int                 prolog_predicate (prolog_predicate_t *p, char *name,
                                       int arity);
+
 int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
-int                 prolog_callarr   (prolog_predicate_t *p, void *retval,
+int                 prolog_acall     (prolog_predicate_t *p, void *retval,
                                       void **args, int narg);
+int                 prolog_vcall     (prolog_predicate_t *p, void *ret,
+                                      va_list ap);
+#define             prolog_callarr prolog_acall
+
+void                prolog_free_predicates(prolog_predicate_t *predicates);
 
 void prolog_free_actions(char ***actions);
 void prolog_dump_actions(char ***actions);
@@ -106,14 +112,8 @@ term_t prolog_list_new(char **items, int n, term_t result);
 void   prolog_prompt(void);
 
 
-#if 0
-void    policy_free_actions(char ***actions);
-void    policy_dump_actions(char ***actions);
-#endif
 
-
-
-#endif /* PROLOG_H_INCLUDED */
+#endif /* __PROLOG_H__ */
 
 
 /* 

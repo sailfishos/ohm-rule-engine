@@ -192,6 +192,24 @@ prolog_predicates(char *query)
 
 
 /********************
+ * prolog_free_predicates
+ ********************/
+void
+prolog_free_predicates(prolog_predicate_t *predicates)
+{
+    prolog_predicate_t *p;
+    
+    if (predicates == NULL)
+        return;
+    
+    for (p = predicates; p->name != NULL; p++) {
+        FREE(p->module);
+        FREE(p->name);
+    }
+}
+
+
+/********************
  * prolog_call
  ********************/
 int
@@ -228,10 +246,10 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
 
 
 /********************
- * prolog_callarr
+ * prolog_acall
  ********************/
 int
-prolog_callarr(prolog_predicate_t *p, void *retval, void **args, int narg)
+prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
 {
     fid_t  frame;
     term_t pl_args, pl_retval;
@@ -252,6 +270,39 @@ prolog_callarr(prolog_predicate_t *p, void *retval, void **args, int narg)
 
     for (i = 0; i < p->arity - 1; i++)
         PL_put_atom_chars(pl_args + i, (char *)args[i]);
+    
+    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
+    if (success)
+        if (collect_result(pl_retval, retval))
+            success = FALSE;
+    
+    PL_close_foreign_frame(frame);
+    
+    return success;
+} 
+
+
+/********************
+ * prolog_vcall
+ ********************/
+int
+prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
+{
+    fid_t    frame;
+    term_t   pl_args, pl_retval;
+    char    *arg;
+    int      i, success;
+
+    
+    frame = PL_open_foreign_frame();
+    
+    pl_args   = PL_new_term_refs(p->arity);
+    pl_retval = pl_args + p->arity - 1;
+
+    for (i = 0; i < p->arity - 1; i++) {
+        arg = va_arg(ap, char *);
+        PL_put_atom_chars(pl_args + i, arg);
+    }
     
     success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
     if (success)
@@ -433,7 +484,7 @@ collect_predicates(term_t pl_descriptor, int i, void *data)
     
         PL_get_chars(pl_module, (char **)&name, CVT_ALL);
         
-        if ((predicate->module = strdup(name)) == NULL)
+        if ((predicate->module = STRDUP(name)) == NULL)
             return ENOMEM;
         
         pl_descriptor = pl_descr;
@@ -518,7 +569,7 @@ collect_actions(term_t item, int i, void *data)
 /********************
  * is_action_list
  ********************/
-int
+static int
 is_action_list(term_t list)
 {
     term_t pl_list, pl_head, pl_action;
