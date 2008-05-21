@@ -113,6 +113,7 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
         return NULL;
             
     snprintf(buf, size, "%s", g_value_get_string(&gstr));
+    printf("*** value of %s: %s\n", field, buf);
     g_value_unset(&gstr);
     
     return buf;
@@ -158,7 +159,8 @@ pl_fact_exists(term_t pl_name,
     
     switch (PL_foreign_control(handle)) {
     case PL_FIRST_CALL:
-        if (!PL_is_list(pl_list) || !PL_get_chars(pl_name, &name, CVT_ALL))
+        if (!PL_is_list(pl_fields) || /*!PL_is_list(pl_list) ||*/
+            !PL_get_chars(pl_name, &name, CVT_ALL))
             PL_fail;
         strcpy(factname, name);
 
