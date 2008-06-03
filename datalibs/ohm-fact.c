@@ -1543,7 +1543,18 @@ static void g_cclosure_user_marshal_VOID__OBJECT_POINTER_POINTER (GClosure * clo
 		data2 = closure->data;
 	}
 	callback = ((GMarshalFunc_VOID__OBJECT_POINTER_POINTER) (marshal_data ? marshal_data : cc->callback));
+
+#if 0
+	/* we get G_VALUE_HOLDS_POINTER runtime warning from
+	 * g_value_get_pointer(param_values + 3) (ie. the new value) */
 	callback (data1, g_value_get_object (param_values + 1), g_value_get_pointer (param_values + 2), g_value_get_pointer (param_values + 3), data2);
+#else
+	callback (data1,
+		  g_value_get_object (param_values + 1),
+		  g_value_get_pointer(param_values + 2),
+		  NULL,
+		  data2);
+#endif
 }
 
 
