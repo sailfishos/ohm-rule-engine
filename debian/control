@@ -1,0 +1,18 @@
+Source: libprolog
+Section: libs
+Priority: optional
+Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
+Standards-Version: 0.0.1
+Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog
+
+Package: libprolog
+Architecture: any
+Depends: ${shlibs:Depends}, swi-prolog
+Description: Prolog convenience library
+ The Prolog convenience library contains a small set of functions that
+ are supposed to make embedding the SWI-prolog interpreter easier.
+ .
+ The library also contains a set of SWI-prolog extensions used by our policy
+ framework.
+
+
