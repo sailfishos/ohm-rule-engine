@@ -239,7 +239,7 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
         if (collect_result(pl_retval, retval))
             success = FALSE;
     
-    PL_close_foreign_frame(frame);
+    PL_discard_foreign_frame(frame);
     
     return success;
 } 
@@ -276,7 +276,7 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         if (collect_result(pl_retval, retval))
             success = FALSE;
     
-    PL_close_foreign_frame(frame);
+    PL_discard_foreign_frame(frame);
     
     return success;
 } 
@@ -309,7 +309,7 @@ prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
         if (collect_result(pl_retval, retval))
             success = FALSE;
     
-    PL_close_foreign_frame(frame);
+    PL_discard_foreign_frame(frame);
     
     return success;
 } 
@@ -786,7 +786,7 @@ prolog_list_length(term_t pl_list)
     PL_get_integer(pl_length, &length);
     
  out:
-    PL_close_foreign_frame(frame);
+    PL_discard_foreign_frame(frame);
 
     return length;
 }
