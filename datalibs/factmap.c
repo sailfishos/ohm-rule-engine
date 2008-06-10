@@ -122,12 +122,7 @@ factmap_destroy(factmap_t *map)
     }
 
     if (map->view) {
-#ifdef NEW_OHMFACT
-        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
-        ohm_fact_store_change_set_reset(sv->change_set);
-#else
-        ohm_fact_store_change_set_reset(map->view->change_set);
-#endif
+        ohm_view_reset_changes(map->view);
         g_object_unref(map->view);
     }
 
@@ -158,13 +153,7 @@ factmap_update(factmap_t *map)
      */
 
     if (map->view != NULL) {
-#ifdef NEW_OHMFACT
-        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
-        updates = ohm_fact_store_change_set_get_matches(sv->change_set);
-#else
-        updates = ohm_fact_store_change_set_get_matches(map->view->change_set);
-#endif
-        if (updates == NULL) {
+        if ((updates = ohm_view_get_changes(map->view)) == NULL) {
             printf("***** no updates\n");
             return 0;
         }
@@ -172,19 +161,8 @@ factmap_update(factmap_t *map)
     else {
         if ((map->view = ohm_fact_store_new_view(map->store, NULL)) == NULL)
             return EIO;
-        if ((pattern = ohm_pattern_new(map->key)) == NULL)
+        if (!ohm_view_add_pattern(map->view, map->key))
             return EIO;
-
-#ifdef NEW_OHMFACT
-        ohm_fact_store_view_add(map->view, OHM_STRUCTURE(pattern));
-#else
-        if ((l = g_slist_prepend(NULL, pattern)) == NULL) {
-            g_object_unref(pattern);
-            return EIO;
-        }
-
-        ohm_fact_store_view_set_interested(map->view, l);
-#endif
     }
 
     printf("***** has updates\n");
@@ -228,14 +206,8 @@ factmap_update(factmap_t *map)
                 return EIO;
     }
     
-    if (map->view) {
-#ifdef NEW_OHMFACT
-        OhmFactStoreSimpleView *sv = OHM_FACT_STORE_SIMPLE_VIEW(map->view);
-        ohm_fact_store_change_set_reset(sv->change_set);
-#else
-        ohm_fact_store_change_set_reset(map->view->change_set);
-#endif
-    }
+    if (map->view)
+        ohm_view_reset_changes(map->view);
     
     return 0;
 }
