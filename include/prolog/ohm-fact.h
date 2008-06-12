@@ -68,22 +68,19 @@ ohm_view_reset_changes(OhmFactStoreView *view)
 
 
 /*************************
- * ohm_str_value
+ * ohm_value_from_double
  *************************/
 static inline GValue *
-ohm_str_value(const char *value)
+ohm_value_from_double(double val)
 {
-    return ohm_value_from_string(value);
-}
+    GValue* value;
 
+    value = g_new0(GValue, 1);
 
-/*************************
- * ohm_int_value
- *************************/
-static inline GValue *
-ohm_int_value(int value)
-{
-    return ohm_value_from_int(value);
+    g_value_init(value, G_TYPE_DOUBLE);
+    g_value_set_double(value, val);
+
+    return value;
 }
 
 
