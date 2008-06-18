@@ -1,6 +1,8 @@
 #ifndef __OHM_FACT_H__
 #define __OHM_FACT_H__
 
+#include <time.h>
+
 #include <prolog/ohm-factstore.h>
 
 #define ohm_fact_store_get_fact_store ohm_get_fact_store
@@ -79,6 +81,23 @@ ohm_value_from_double(double val)
 
     g_value_init(value, G_TYPE_DOUBLE);
     g_value_set_double(value, val);
+
+    return value;
+}
+
+
+/*************************
+ * ohm_value_from_time
+ *************************/
+static inline GValue *
+ohm_value_from_time(time_t val)
+{
+    GValue* value;
+
+    value = g_new0(GValue, 1);
+
+    g_value_init(value, G_TYPE_ULONG);
+    g_value_set_ulong(value, val);
 
     return value;
 }
