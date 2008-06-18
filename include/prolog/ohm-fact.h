@@ -90,20 +90,14 @@ ohm_value_from_double(double val)
  * ohm_value_from_time
  *************************/
 static inline GValue *
-ohm_value_from_time(struct timeval *val)
+ohm_value_from_time(guint64 val)
 {
     GValue* value;
     int     usec_bits;
-    guint64 u64;
-
     value = g_new0(GValue, 1);
 
-    usec_bits = sizeof(val->tv_usec) * 8;
-    u64  = (guint64)val->tv_sec << usec_bits;
-    u64 |= (guint64)val->tv_usec & (((guint64)1 << usec_bits)-1);
-
     g_value_init(value, G_TYPE_UINT64);
-    g_value_set_uint64(value, u64);
+    g_value_set_uint64(value, val);
 
     return value;
 }
