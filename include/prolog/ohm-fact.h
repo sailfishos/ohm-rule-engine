@@ -70,6 +70,23 @@ ohm_view_reset_changes(OhmFactStoreView *view)
 
 
 /*************************
+ * ohm_value_from_unsigned
+ *************************/
+static inline GValue *
+ohm_value_from_unsigned(unsigned long val)
+{
+    GValue* value;
+
+    value = g_new0(GValue, 1);
+
+    g_value_init(value, G_TYPE_ULONG);
+    g_value_set_ulong(value, val);
+
+    return value;
+}
+
+
+/*************************
  * ohm_value_from_double
  *************************/
 static inline GValue *
