@@ -3,7 +3,7 @@ Section: libs
 Priority: optional
 Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
 Standards-Version: 0.0.1
-Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog
+Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog, ohm-dev
 
 Package: libprolog
 Architecture: any
@@ -12,14 +12,27 @@ Depends: ${shlibs:Depends}, swi-prolog
 Description: Prolog convenience library
  The Prolog convenience library contains a small set of functions that
  are supposed to make embedding the SWI-prolog interpreter easier.
+
+Package: libprolog-dev
+Architecture: any
+Depends: ${shlibs:Depends}, libprolog
+Section: libdevel
+Description: Development files for the prolog convenience library.
  .
- The library also contains a set of SWI-prolog extensions used by our policy
- framework.
+ This package contains header files, libraries, pkg-config files, etc.
+ necessary for developing with the prolog convenience library.
 
 Package: prolog-extensions
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog
-Description: Prolog extensions for the policy framework
+Description: Prolog extensions for the Nokia policy framework
  A set of prolog extensions needed by the policy framework (and/or its
  prototype implementation).
+
+Package: ohm-plugin-prolog
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends}, swi-prolog, ohm
+Description: A prolog-bsaed OHM rule engine plugin.
+ A prolog-based OHM rule engine plugin.
