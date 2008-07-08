@@ -34,5 +34,5 @@ Package: ohm-plugin-prolog
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog, ohm
-Description: A prolog-bsaed OHM rule engine plugin.
+Description: A prolog-based OHM rule engine plugin.
  A prolog-based OHM rule engine plugin.

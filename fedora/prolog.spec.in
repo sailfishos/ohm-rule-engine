@@ -1,4 +1,4 @@
-%define _enable_debug_package 0
+%define _enable_debug_packages 0
 %define _unpackaged_files_terminate_build 0
 
 Summary: A convenience library Nokia policy engine prolog library.
