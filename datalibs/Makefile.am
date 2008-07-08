@@ -5,6 +5,7 @@ lib_LTLIBRARIES = libfact.la # librelation.la libset.la libfactmap.la
 #libfact_la_LIBADD  = @GLIB_LIBS@
 #libfact_la_LDFLAGS =
 #libfact_la_CFLAGS  = @GLIB_CFLAGS@
+
 libfact_la_SOURCES = ohm-factstore.c
 libfact_la_LIBADD  = @GLIB_LIBS@
 libfact_la_LDFLAGS =

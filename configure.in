@@ -42,10 +42,16 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([gettimeofday memset putenv strdup strtoul])
 
-# Checks for glib and gobject (factmap).
+# Checks for glib and gobject.
 PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
+
+# libohmfact
+PKG_CHECK_MODULES(LIBOHMFACT, libohmfact)
+AC_SUBST(LIBOHMFACT_CFLAGS)
+AC_SUBST(LIBOHMFACT_LIBS)
+
 
 # libpolicy/prolog support
 
@@ -83,15 +89,11 @@ AC_SUBST(PROLOG_CFLAGS)
 AC_SUBST(PROLOG_HOME)
 
 
+
 AC_CONFIG_FILES([Makefile
                  src/Makefile
 		 libprolog.pc
 		 include/Makefile
-		 datalibs/Makefile
-		 datalibs/libset.pc
-		 datalibs/librelation.pc
-		 datalibs/libfactmap.pc
-		 datalibs/libfact.pc
 		 extensions/Makefile
 		 test/Makefile])
 AC_OUTPUT

@@ -5,7 +5,7 @@
 
 #include <SWI-Prolog.h>
 
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 
 typedef struct {
     OhmFactStore  *store;                      /* fact store */

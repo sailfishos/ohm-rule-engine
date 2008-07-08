@@ -21,15 +21,5 @@ Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog
 Description: Prolog extensions for the policy framework
- A set of prolgo extensions needed by the policy framework (and/or its
+ A set of prolog extensions needed by the policy framework (and/or its
  prototype implementation).
-
-Package: libfact
-Architecture: any
-Section: libs
-Depends: ${shlibs:Depends}
-Description: Factstore library
- The factstore library provides a more featureful alternative to the
- OHM keystore. It is separated to a library of its own for easier
- integration to the dependency reolver and prolog extensions.
-

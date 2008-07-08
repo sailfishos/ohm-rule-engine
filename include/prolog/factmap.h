@@ -2,7 +2,7 @@
 #define __PROLOG_FACTMAP_H__
 
 #include <prolog/relation.h>
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 
 
 /*

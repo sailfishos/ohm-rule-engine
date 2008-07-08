@@ -1,12 +1,7 @@
-SUBDIRS = src include datalibs extensions # test
+SUBDIRS = src include extensions # test
 
 pkgconfigdir   = ${libdir}/pkgconfig
-pkgconfig_DATA = libprolog.pc \
-	         datalibs/libfact.pc
-#	         datalibs/librelation.pc \
-#	         datalibs/libset.pc \
-#	         datalibs/libfactmap.pc
-
+pkgconfig_DATA = libprolog.pc
 
 MAINTAINERCLEANFILES = Makefile.in
 
