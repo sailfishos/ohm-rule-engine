@@ -17,6 +17,9 @@ binary-post-install/libprolog::
 	rm -f debian/tmp/usr/share/prolog/extensions/*.la
 common-binary-post-install-arch:: list-missing
 
+configure: configure.in
+	./autogen.sh
+
 #binary-post-install/ohm::
 #	rm -f debian/tmp/usr/lib/*.la
 #common-binary-post-install-arch:: list-missing
