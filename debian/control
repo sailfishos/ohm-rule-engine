@@ -8,6 +8,7 @@ Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog, ohm-dev
 Package: libprolog0
 Architecture: any
 Section: libs
+Provides: libprolog
 Depends: ${shlibs:Depends}, swi-prolog
 Description: Prolog convenience library
  The Prolog convenience library contains a small set of functions that
@@ -15,7 +16,7 @@ Description: Prolog convenience library
 
 Package: libprolog-dev
 Architecture: any
-Depends: libprolog
+Depends: libprolog0
 Section: libdevel
 Description: Development files for the prolog convenience library.
  .
