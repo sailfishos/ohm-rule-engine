@@ -1,0 +1,3 @@
+debian/tmp/usr/include/prolog/list.h /usr/include/prolog
+debian/tmp/usr/include/prolog/prolog.h /usr/include/prolog
+debian/tmp/usr/lib/pkgconfig/libprolog.pc /usr/lib/pkgconfig
