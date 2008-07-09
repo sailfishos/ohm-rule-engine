@@ -2,10 +2,10 @@ Source: libprolog
 Section: libs
 Priority: optional
 Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
-Standards-Version: 0.0.1
+Standards-Version: 3.6.1
 Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog, ohm-dev
 
-Package: libprolog
+Package: libprolog0
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog
@@ -15,7 +15,7 @@ Description: Prolog convenience library
 
 Package: libprolog-dev
 Architecture: any
-Depends: ${shlibs:Depends}, libprolog
+Depends: libprolog
 Section: libdevel
 Description: Development files for the prolog convenience library.
  .

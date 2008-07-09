@@ -1,2 +1,3 @@
-debian/tmp/usr/lib/pkgconfig/* /usr/lib/pkgconfig
-debian/tmp/usr/include/prolog/* /usr/include/prolog
+usr/lib/libprolog.so
+usr/lib/pkgconfig/*
+usr/include/prolog
