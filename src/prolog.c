@@ -375,7 +375,8 @@ prolog_flatten_actions(char ***actions)
     } while (0)
 
     char **action, *a, *flattened, *p, *t;
-    int    i, j, size, left, n;
+    int    i, j, n;
+    unsigned int size, left;
 
     p = flattened = NULL;
     size = left = 0;
@@ -676,7 +677,7 @@ static int
 collect_result(term_t pl_retval, void *retval)
 {
     char     *s;
-    size_t    n;
+    int       n;
 
     switch (PL_term_type(pl_retval)) {
         

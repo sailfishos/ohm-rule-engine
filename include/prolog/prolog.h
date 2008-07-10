@@ -46,7 +46,7 @@
 #define FREE(obj) do { if (obj) free(obj); } while (0)
 
 #define STRDUP(s) ({                                    \
-            char *__s = s;                              \
+            char *__s = (char*) s;                      \
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
