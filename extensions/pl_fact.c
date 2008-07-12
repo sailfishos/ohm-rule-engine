@@ -113,7 +113,6 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
         return NULL;
             
     snprintf(buf, size, "%s", g_value_get_string(&gstr));
-    printf("*** value of %s: %s\n", field, buf);
     g_value_unset(&gstr);
     
     return buf;
