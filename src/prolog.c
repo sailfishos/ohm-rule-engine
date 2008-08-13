@@ -33,16 +33,17 @@ static char lstack[16], gstack[16], tstack[16], astack[16];
 
 static char *pl_argv[] = {
     NULL,                                      /* argv[0] */
+    NULL,                                      /* -x */
+    NULL,                                      /* bootfile or argv[0] */
+    "-q",                                      /* no startup banners */
+    "-nosignals",                              /* no prolog signal handling */
+    "-tty",                                    /* no controlling TTY */
+#define NUM_FIXED_ARGS 3
     "-L16k",                                   /* local stack size */
     "-G16k",                                   /* global stack size */
     "-T16k",                                   /* trail stack size */
     "-A16k",                                   /* argument stack size */
-    "-q",                                      /* seems to get ignored... */
-    "-nosignals",                              /* no prolog signal handling */
-    "-tty"                                     /* no controlling TTY */
 };
-static int pl_argc = sizeof(pl_argv) / sizeof(pl_argv[0]);
-
 
 
 /*****************************************************************************
@@ -53,9 +54,11 @@ static int pl_argc = sizeof(pl_argv) / sizeof(pl_argv[0]);
  * prolog_init
  *************************/
 int
-prolog_init(char *argv0, int lsize, int gsize, int tsize, int asize)
+prolog_init(char *argv0,
+            int lsize, int gsize, int tsize, int asize, char *bootfile)
 {
-    int i, status;
+    char **argv;
+    int    argc, status;
 
     /*
      * Notes:
@@ -78,26 +81,52 @@ prolog_init(char *argv0, int lsize, int gsize, int tsize, int asize)
      * a GLIBC-specific hack using dl_iterate_phdr(3) to iterate directly
      * through the list of shared objects loaded into us. This would have
      * the benefit of not needing to open and parse /proc entries.
+     *
+     * Notes #3:
+     *
+     * Stand-alone precompiled prolog files include a copy of the interpreter
+     * itself. Using one could be an alternative to avoid this problem
+     * altogether.
      */
     
-
     putenv("SWI_HOME_DIR="PROLOG_HOME);    /* hmm... is this needed now ? */
 
     snprintf(lstack, sizeof(lstack), "-L%dk", lsize ?: 16);
     snprintf(gstack, sizeof(gstack), "-G%dk", gsize ?: 16);
     snprintf(tstack, sizeof(tstack), "-T%dk", tsize ?: 16);
     snprintf(astack, sizeof(astack), "-A%dk", asize ?: 16);
+
+    if (bootfile != NULL)
+        argv = pl_argv;
+    else
+        argv = pl_argv + 2;                   /* skip { "-x", bootfile } */
     
-    pl_argv[i=0] = shlib_path(LIBPROLOG, libpl, sizeof(libpl));
-    pl_argv[++i] = lstack;
-    pl_argv[++i] = gstack;
-    pl_argv[++i] = tstack;
-    pl_argv[++i] = astack;
+    argv[argc=0] = shlib_path(LIBPROLOG, libpl, sizeof(libpl));
+    
+    if (bootfile != NULL) {
+        pl_argv[++argc] = "-x";               /* must be argv[1] */
+        pl_argv[++argc] = bootfile;           /*     and argv[2] */
+    }
+    
+    argc += NUM_FIXED_ARGS;
+    pl_argv[++argc] = lstack;
+    pl_argv[++argc] = gstack;
+    pl_argv[++argc] = tstack;
+    pl_argv[++argc] = astack;
 
-    if ((status = !PL_initialise(pl_argc, pl_argv)))
+    {
+        int i;
+        
+        for (i = 0; i <= argc; i++)
+            printf("##### argv[%d] = \"%s\"\n", i, argv[i]);
+    }
+
+    if ((status = !PL_initialise(argc + 1, argv)))
         PL_cleanup(0);
-
+    
     return status;
+
+    (void)argv0;
 }
 
 
@@ -695,7 +724,7 @@ collect_result(term_t pl_retval, void *retval)
         return (*(char **)retval = strdup(s)) == NULL ? EIO : 0;
 
     case PL_STRING:
-        if (!PL_get_string_chars(pl_retval, &s, &n))
+        if (!PL_get_string_chars(pl_retval, &s, (size_t *)&n))
             return EIO;
         return (*(char **)retval = strdup(s)) == NULL ? EIO : 0;
         

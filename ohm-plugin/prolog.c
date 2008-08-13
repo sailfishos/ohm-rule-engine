@@ -30,12 +30,9 @@ static prolog_predicate_t *find_predicate(char *name, int arity);
 static void
 plugin_init(OhmPlugin *plugin)
 {
-#define STACK_LIMIT 16,16,16,16                      /* 16k stacks */
+    return;
 
-    if (prolog_init("prolog-plugin", STACK_LIMIT) != 0) {
-        g_warning("%s: Failed to initialize prolog library.", __FUNCTION__);
-        exit(1);
-    }
+    (void)plugin;
 }
 
 
@@ -47,6 +44,8 @@ plugin_exit(OhmPlugin *plugin)
 {
     prolog_free_predicates(predicates);
     prolog_exit();
+
+    (void)plugin;
 }
 
 
@@ -59,9 +58,23 @@ plugin_exit(OhmPlugin *plugin)
  ********************/
 OHM_EXPORTABLE(int, setup, (char **extensions, char **files))
 {
+#define STACK_LIMIT 16,16,16,16                      /* 16k stacks */
     int   i;
-    char *p;
+    char *p, *boot;
 
+    boot = NULL;
+    if (files != NULL) {
+        if ((p = strrchr(files[0], '.')) != NULL && !strcmp(p + 1, "plc")) {
+            boot = files[0];
+            files++;
+        }
+    }
+
+    if (prolog_init("prolog-plugin", STACK_LIMIT, boot) != 0) {
+        g_warning("%s: Failed to initialize prolog library.", __FUNCTION__);
+        exit(1);
+    }
+    
     for (p = extensions[i=0]; p != NULL; p = extensions[++i])
         if (prolog_load_extension(p)) {
             g_warning("%s: failed to load extension \"%s\"", __FUNCTION__, p);

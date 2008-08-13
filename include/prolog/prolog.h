@@ -70,7 +70,7 @@ typedef struct {
 
 
 
-int  prolog_init(char *argv0, int, int, int, int);
+int  prolog_init(char *argv0, int, int, int, int, char *bootfile);
 void prolog_exit(void);
 
 int  prolog_load_extension(char *path);
