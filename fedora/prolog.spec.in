@@ -47,7 +47,7 @@ A prolog-based OHM rule engine plugin.
 
 %build
 export CFLAGS="-O0 -g3"
-%configure --disable-static
+%configure --disable-static --enable-extra-warnings
 make
 
 %install

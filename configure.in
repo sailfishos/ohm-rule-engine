@@ -36,6 +36,25 @@ AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_HEADER_TIME
 
+# Enable extra GCC flags.
+if test "$GCC" = "yes"; then
+    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
+fi
+
+# Extra compilation warnings.
+AC_ARG_ENABLE(extra-warnings,
+              [  --enable-extra-warnings enable extra compilation warnings],
+              enable_extra_warnings=$enableval,enable_extra_warnings=no)
+if test x$enable_extra_warnings = xyes ; then
+    AC_MSG_CHECKING([for extra compiler warnings])
+    if test "$GCC" = "yes"; then
+        CPPFLAGS="$CPPFLAGS -Wextra"
+        AC_MSG_RESULT(yes)
+    else
+        AC_MSG_RESULT([no (compiler not GCC)])
+    fi
+fi
+
 # Checks for library functions.
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_MALLOC
