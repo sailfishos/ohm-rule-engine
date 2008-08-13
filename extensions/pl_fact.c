@@ -95,8 +95,10 @@ get_field_names(context_t *ctx, term_t pl_fields)
 static char *
 fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
 {
-    GValue *value, gstr = {0};
+    GValue *value, gstr;
     
+    g_value_init(&gstr, 0);
+
     if ((value = ohm_fact_get(fact, field)) == NULL)
         return NULL;
     
