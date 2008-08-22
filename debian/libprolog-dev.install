@@ -1,9 +1,3 @@
-<<<<<<< HEAD:debian/libprolog-dev.install
-debian/tmp/usr/include/prolog/list.h /usr/include/prolog
-debian/tmp/usr/include/prolog/prolog.h /usr/include/prolog
-debian/tmp/usr/lib/pkgconfig/libprolog.pc /usr/lib/pkgconfig
-=======
 usr/lib/libprolog.so
 usr/lib/pkgconfig/*
 usr/include/prolog
->>>>>>> 1b5294ccd5c42aec14db1b0b7547134c74b56c37:debian/libprolog-dev.install
