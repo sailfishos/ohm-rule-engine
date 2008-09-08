@@ -1,3 +1,10 @@
+libprolog (0.0.2) unstable; urgency=low
+
+  * Preliminary support for precompiled files. Extensions relocated 
+    under /usr/lib/prolog.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon,  8 Sep 2008 19:46:25 +0300
+
 libprolog (0.0.1) unstable; urgency=low
 
   * initial release.
