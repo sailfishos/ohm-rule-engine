@@ -7,6 +7,6 @@ Name: libprolog
 Description: Prolog Convenience Library
 Version: @VERSION@
 #Requires: swi-prolog
-Libs: -L${libdir} -lprolog @PROLOG_LDFLAGS@
+Libs: -L${libdir} -lprolog @PROLOG_LIBS@
 Cflags: -I${includedir} @PROLOG_CFLAGS@
 
