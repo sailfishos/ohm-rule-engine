@@ -1,6 +1,7 @@
 #ifndef __PROLOG_H__
 #define __PROLOG_H__
 
+#include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 
 #undef ALLOC
@@ -99,8 +100,6 @@ void prolog_dump_objects(char ***objects);
 
 
 
-int  prolog_query_once(char *predicate, int arity, term_t pl_arguments,
-                       char *module);
 int  prolog_list_length(term_t pl_list);
 int  prolog_walk_list(term_t list,
                       int (*callback)(term_t item, int i, void *data),
@@ -109,8 +108,7 @@ int  prolog_walk_list(term_t list,
 term_t prolog_list_new(char **items, int n, term_t result);
 
 
-void   prolog_prompt(void);
-
+int prolog_shell(int in);
 
 
 #endif /* __PROLOG_H__ */

@@ -89,6 +89,18 @@ OHM_EXPORTABLE(int, setup, (char **extensions, char **files))
 
     predicates = prolog_predicates(NULL);
 
+#if 0
+    if (prolog_run("help(halt)") != 0)
+        printf("failed to run \"help.\"\n");
+    else
+        printf("*** run help. OK. ***\n");
+
+    if (prolog_exec("help(halt).") != 0)
+        printf("failed to run \"help.\"\n");
+    else
+        printf("*** exec help. OK. ***\n");
+#endif    
+
     return 0;
 }
 
@@ -173,11 +185,12 @@ OHM_EXPORTABLE(void, dump_return_value, (void *retval))
 
 
 /********************
- * prolog_shell
+ * shell
  ********************/
-OHM_EXPORTABLE(void, prolog_shell, (void))
+OHM_EXPORTABLE(void, prompt, (void))
 {
-    prolog_prompt();
+    /*prolog_prompt();*/
+    prolog_shell(fileno(stdin));
 }
 
 
@@ -224,7 +237,7 @@ OHM_PLUGIN_PROVIDES_METHODS(prolog, 8,
     OHM_EXPORT(acall_predicate  , "acall"),
     OHM_EXPORT(free_return_value, "free_retval"),
     OHM_EXPORT(dump_return_value, "dump_retval"),
-    OHM_EXPORT(prolog_shell     , "shell")
+    OHM_EXPORT(prompt           , "prompt")
 );
 
                             
