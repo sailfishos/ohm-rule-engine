@@ -68,7 +68,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 
 %files extensions
 %defattr(-,root,root,-)
-%{_datadir}/prolog/extensions
+%{_libdir}/prolog/extensions
 
 %files -n ohm-plugin-prolog
 %defattr(-,root,root,-)

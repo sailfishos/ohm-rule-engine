@@ -1,5 +1,5 @@
 pkglib_LTLIBRARIES = fact.la
-pkglibdir          = ${datadir}/prolog/extensions
+pkglibdir          = ${libdir}/prolog/extensions
 
 fact_la_SOURCES = pl_fact.c
 fact_la_CFLAGS  = @PROLOG_CFLAGS@ @GLIB_CFLAGS@ @LIBOHMFACT_CFLAGS@
