@@ -1,4 +1,4 @@
-SUBDIRS = src include extensions ohm-plugin
+SUBDIRS = src include extensions ohm-plugin doc
 
 pkgconfigdir   = ${libdir}/pkgconfig
 pkgconfig_DATA = libprolog.pc
