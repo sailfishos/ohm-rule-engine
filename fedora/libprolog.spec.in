@@ -2,7 +2,7 @@
 %define _unpackaged_files_terminate_build 0
 
 Summary: A convenience library Nokia policy engine prolog library.
-Name: prolog
+Name: libprolog
 Version: ##__VERSION__##
 Release: 1
 License: Proprietary
@@ -25,7 +25,7 @@ Group: Development/Library
 %package -n ohm-plugin-prolog
 Summary: A prolog-based OHM rule engine plugin.
 Group: System Environment/Daemons
-Requires: prolog, ohm
+Requires: libprolog, ohm
 
 %description
 The prolog convenience library contains a small set of functions that
