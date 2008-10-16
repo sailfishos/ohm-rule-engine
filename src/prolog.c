@@ -369,11 +369,12 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     term_t pl_args, pl_retval;
     int    i, success;
 
-    if (narg < p->arity)
+    if (narg < p->arity - 1)
         return FALSE;
-    else if (narg > p->arity) {
+    else if (narg > p->arity - 1) {
         fprintf(stderr, "WARNING: %s ignoring extra %d parameter%s to %s\n",
-                __FUNCTION__, narg - p->arity, narg - p->arity > 1 ? "s" : "",
+                __FUNCTION__,
+                narg - p->arity - 1, narg - p->arity - 1 > 1 ? "s" : "",
                 p->name);
     }
     
