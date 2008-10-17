@@ -18,7 +18,7 @@ Requires: pl >= 5.6.32
 Summary: Files necessary for developing with the prolog convenience library.
 Group: Development/Library
 
-%package extensions
+%package -n prolog-extensions
 Summary: Prolog extensions for the Nokia policy framework
 Group: Development/Library
 
@@ -35,7 +35,7 @@ are supposed to make embedding the SWI-prolog interpreter easier.
 This package contains files necessary for developing with the prolog
 convenience library.
 
-%description extensions
+%description -n prolog-extensions
 A set of prolog extensions needed by the policy framework (and/or its
 prototype implementation).
 
@@ -66,7 +66,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %{_includedir}/prolog
 %{_libdir}/pkgconfig/*
 
-%files extensions
+%files -n prolog-extensions
 %defattr(-,root,root,-)
 %{_libdir}/prolog/extensions
 

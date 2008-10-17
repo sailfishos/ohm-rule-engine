@@ -1,5 +1,5 @@
 PACKAGE := libprolog
-VERSION := 0.0.2
+VERSION := 0.0.4
 
 TOPDIR  := $(shell while [ ! -d fedora -a "`pwd`" != "/" ]; do cd ..; done; \
 		   [ -d fedora ] && pwd || exit 1)
