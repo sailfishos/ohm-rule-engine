@@ -241,6 +241,8 @@ prolog_free_predicates(prolog_predicate_t *predicates)
         FREE(p->module);
         FREE(p->name);
     }
+
+    FREE(predicates);
 }
 
 
