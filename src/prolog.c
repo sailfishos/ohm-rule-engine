@@ -20,8 +20,21 @@
 #define PRED_EXPORTED "exported"
 #define OBJECT_NAME   "name"
 
-#define NATIVE  0
-#define FOREIGN 1
+#define QUERY_FLAGS (PL_Q_NORMAL | PL_Q_NODEBUG | PL_Q_CATCH_EXCEPTION)
+
+
+enum {
+    NATIVE  = 0,
+    FOREIGN = 1,
+};
+
+enum {
+    RESULT_UNKNOWN = 0,
+    RESULT_ACTIONS,
+    RESULT_OBJECTS,
+    RESULT_EXCEPTION,
+};
+
 
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
@@ -29,6 +42,7 @@ static int   collect_predicates(term_t pl_descriptor, int i, void *data);
 static int   collect_result    (term_t pl_retval, void *retval);
 static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
+static void  collect_exception (qid_t qid, void *retval);
 
 
 static char libpl[PATH_MAX];
@@ -333,6 +347,7 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
 {
     va_list  ap;
     fid_t    frame;
+    qid_t    qid;
     term_t   pl_args, pl_retval;
     char    *arg;
     int      i, success;
@@ -350,11 +365,15 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
     }
     va_end(ap);
 
-    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
-    if (success)
+    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    if ((success = PL_next_solution(qid))) {
         if (collect_result(pl_retval, retval))
             success = FALSE;
-    
+    }
+    else
+        collect_exception(qid, retval);
+    PL_close_query(qid);
+
     PL_discard_foreign_frame(frame);
     
     return success;
@@ -368,6 +387,7 @@ int
 prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
 {
     fid_t  frame;
+    qid_t  qid;
     term_t pl_args, pl_retval;
     int    i, success;
 
@@ -388,10 +408,14 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     for (i = 0; i < p->arity - 1; i++)
         PL_put_atom_chars(pl_args + i, (char *)args[i]);
     
-    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
-    if (success)
+    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    if ((success = PL_next_solution(qid))) {
         if (collect_result(pl_retval, retval))
             success = FALSE;
+    }
+    else
+        collect_exception(qid, retval);
+    PL_close_query(qid);
     
     PL_discard_foreign_frame(frame);
     
@@ -406,6 +430,7 @@ int
 prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
 {
     fid_t    frame;
+    qid_t    qid;
     term_t   pl_args, pl_retval;
     char    *arg;
     int      i, success;
@@ -420,11 +445,15 @@ prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
         arg = va_arg(ap, char *);
         PL_put_atom_chars(pl_args + i, arg);
     }
-    
-    success = PL_call_predicate(NULL, PL_Q_NORMAL, p->predicate, pl_args);
-    if (success)
+
+    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    if ((success = PL_next_solution(qid))) {
         if (collect_result(pl_retval, retval))
             success = FALSE;
+    }
+    else
+        collect_exception(qid, retval);
+    PL_close_query(qid);
     
     PL_discard_foreign_frame(frame);
     
@@ -436,6 +465,51 @@ prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
  *                        *** action/object handling ***                     *
  *****************************************************************************/
 
+
+/********************
+ * prolog_free_results
+ ********************/
+void
+prolog_free_results(char ***results)
+{
+    int tag;
+
+    if (results == NULL)
+        return;
+
+    switch ((tag = (int)results[-1])) {
+    case RESULT_ACTIONS:   prolog_free_actions(results);   break;
+    case RESULT_OBJECTS:   prolog_free_objects(results);   break;
+    case RESULT_EXCEPTION: prolog_free_exception(results); break;
+    default:
+        fprintf(stderr, "WARNING: %s called with invalid result type %d\n",
+                __FUNCTION__, tag);
+    }
+}
+
+
+/********************
+ * prolog_dump_results
+ ********************/
+void
+prolog_dump_results(char ***results)
+{
+    int tag;
+
+    if (results == NULL)
+        return;
+
+    switch ((tag = (int)results[-1])) {
+    case RESULT_ACTIONS:   prolog_dump_actions(results);   break;
+    case RESULT_OBJECTS:   prolog_dump_objects(results);   break;
+    case RESULT_EXCEPTION: prolog_dump_exception(results); break;
+    default:
+        fprintf(stderr, "WARNING: %s called with invalid result type %d\n",
+                __FUNCTION__, tag);
+    }
+}
+
+
 /********************
  * prolog_free_actions
  ********************/
@@ -443,15 +517,22 @@ void
 prolog_free_actions(char ***actions)
 {
     int a, p;
-    
-    if (actions) {
-        for (a = 0; actions[a]; a++) {
-            for (p = 0; actions[a][p]; p++)
-                free(actions[a][p]);
-            free(actions[a]);
-        }
-        free(actions);
+
+    if (actions == NULL)
+        return;
+
+    if (actions[-1] != (char **)RESULT_ACTIONS) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)actions[-1]);
+        return;
     }
+    
+    for (a = 0; actions[a]; a++) {
+        for (p = 0; actions[a][p]; p++)
+            free(actions[a][p]);
+        free(actions[a]);
+    }
+    free(actions - 1);
 }
 
 
@@ -462,14 +543,21 @@ void
 prolog_dump_actions(char ***actions)
 {
     int a, p;
+
+    if (actions == NULL)
+        return;
+
+    if (actions[-1] != (char **)RESULT_ACTIONS) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)actions[-1]);
+        return;
+    }
     
-    if (actions) {
-        for (a = 0; actions[a]; a++) {
-            printf("(%s", actions[a][0]);
-            for (p = 1; actions[a][p]; p++)
-                printf(", %s", actions[a][p]);
-            printf(")\n");
-        }
+    for (a = 0; actions[a]; a++) {
+        printf("(%s", actions[a][0]);
+        for (p = 1; actions[a][p]; p++)
+            printf(", %s", actions[a][p]);
+        printf(")\n");
     }
 }
 
@@ -498,7 +586,16 @@ prolog_flatten_actions(char ***actions)
     char **action, *a, *flattened, *p, *t;
     int    i, j, n;
     unsigned int size, left;
-
+    
+    if (actions == NULL)
+        return NULL;
+    
+    if (actions[-1] != (char **)RESULT_ACTIONS) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)actions[-1]);
+        return NULL;
+    }
+    
     p = flattened = NULL;
     size = left = 0;
 
@@ -507,24 +604,22 @@ prolog_flatten_actions(char ***actions)
     *p++ = '[';
     left--;
 
-    if (actions != NULL) {
-        for (i = 0; (action = actions[i]) != NULL; i++) {
-            for (j = 0, t = "["; (a = action[j]) != NULL; j++, t = " ") {
-                NEED_SPACE(strlen(a) + strlen(t));
-                n     = snprintf(p, left, "%s%s", t, a);
-                p    += n;
-                left -= n;
-            }
-            NEED_SPACE(1);
-            *p++ = ']';
-            left--;
+    for (i = 0; (action = actions[i]) != NULL; i++) {
+        for (j = 0, t = "["; (a = action[j]) != NULL; j++, t = " ") {
+            NEED_SPACE(strlen(a) + strlen(t));
+            n     = snprintf(p, left, "%s%s", t, a);
+            p    += n;
+            left -= n;
         }
+        NEED_SPACE(1);
+        *p++ = ']';
+        left--;
     }
     
     NEED_SPACE(2);
     *p++ = ']';
     *p   = '\0';
-
+    
     return flattened;
 }
 
@@ -536,15 +631,22 @@ void
 prolog_free_objects(char ***objects)
 {
     int i, p;
-    
-    if (objects) {
-        for (i = 0; objects[i]; i++) {
-            for (p = 0; objects[i][p]; p++)
-                free(objects[i][p]);
-            free(objects[i]);
-        }
-        free(objects);
+
+    if (objects == NULL)
+        return;
+
+    if (objects[-1] != (char **)RESULT_OBJECTS) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)objects[-1]);
+        return;
     }
+    
+    for (i = 0; objects[i]; i++) {
+        for (p = 0; objects[i][p]; p++)
+            free(objects[i][p]);
+        free(objects[i]);
+    }
+    free(objects - 1);
 }
 
 
@@ -557,15 +659,62 @@ prolog_dump_objects(char ***objects)
     int   i, p;
     char *t;
 
-    if (objects) {
-        for (i = 0; objects[i]; i++) {
-            printf("{ ");
-            for (p = 0, t = ""; objects[i][p]; p += 2, t = ", ")
-                printf("%s%s:%s", t, objects[i][p], objects[i][p+1]);
-            printf(" }\n");
-        }
+    if (objects == NULL)
+        return;
+
+    if (objects[-1] != (char **)RESULT_OBJECTS) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)objects[-1]);
+        return;
+    }
+
+    for (i = 0; objects[i]; i++) {
+        printf("{ ");
+        for (p = 0, t = ""; objects[i][p]; p += 2, t = ", ")
+            printf("%s%s:%s", t, objects[i][p], objects[i][p+1]);
+        printf(" }\n");
     }
 }
+
+
+/********************
+ * prolog_dump_exception
+ ********************/
+void
+prolog_dump_exception(char ***exception)
+{
+    if (exception == NULL)
+        return;
+    
+    if (exception[-1] != (char **)RESULT_EXCEPTION) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)exception[-1]);
+        return;
+    }
+
+    printf("prolog exception '%s'\n", (char *)exception[0]);
+}
+
+
+/********************
+ * prolog_free_exception
+ ********************/
+void
+prolog_free_exception(char ***exception)
+{
+    if (exception == NULL)
+        return;
+
+    if (exception[-1] != (char **)RESULT_EXCEPTION) {
+        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
+                __FUNCTION__, (int)exception[-1]);
+        return;
+    }
+
+    FREE((char *)exception[1]);
+    FREE(exception);
+}
+
 
 
 
@@ -740,11 +889,13 @@ collect_result(term_t pl_retval, void *retval)
             return EIO;
 
         if (is_action_list(pl_retval)) {
-            char   ***actions;
+            char ***actions;
 
-            if ((actions = ALLOC_ARRAY(char **, n + 1)) == NULL)
+            if ((actions = ALLOC_ARRAY(char **, 1 + n + 1)) == NULL)
                 return ENOMEM;
             
+            *actions++ = (char **)RESULT_ACTIONS;
+
             if (prolog_walk_list(pl_retval, collect_actions, actions)) {
                 prolog_free_actions(actions);
                 return EIO;
@@ -756,9 +907,11 @@ collect_result(term_t pl_retval, void *retval)
         else {
             char ***objects;
             
-            if ((objects = ALLOC_ARRAY(char **, n + 1)) == NULL)
+            if ((objects = ALLOC_ARRAY(char **, 1 + n + 1)) == NULL)
                 return ENOMEM;
             
+            *objects++ = (char **)RESULT_OBJECTS;
+
             if (prolog_walk_list(pl_retval, collect_objects, objects)) {
                 prolog_free_objects(objects);
                 return EIO;
@@ -886,6 +1039,40 @@ collect_objects(term_t item, int i, void *data)
     return 0;
 }
 
+
+/********************
+ * collect_exception
+ ********************/
+static void
+collect_exception(qid_t qid, void *retval)
+{
+    char       ***objects = (char ***)retval;
+    term_t        pl_error;
+    atom_t        pl_name;
+    int           arity;
+    const char   *name;
+
+    *objects = NULL;
+        
+    if ((pl_error = PL_exception(qid)) == 0)
+        return;
+
+    if (!PL_is_compound(pl_error) ||
+        !PL_get_name_arity(pl_error, &pl_name, &arity))
+        return;
+    
+    if ((name = PL_atom_chars(pl_name)) == NULL)
+        return;
+    
+    printf("*** an exception with name '%s' ***\n", name);
+
+    if ((objects = ALLOC_ARRAY(char **, 1 + 1 + 1)) == NULL)
+        return;
+
+    objects[0] = (char **)RESULT_EXCEPTION;
+    objects[1] = (char **)STRDUP(name);
+    objects[2] = NULL;
+}
 
 
 /*****************************************************************************

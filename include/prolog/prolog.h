@@ -90,6 +90,12 @@ int                 prolog_vcall     (prolog_predicate_t *p, void *ret,
 
 void                prolog_free_predicates(prolog_predicate_t *predicates);
 
+void prolog_free_results(char ***results);
+void prolog_dump_results(char ***results);
+
+void prolog_free_exception(char ***exception);
+void prolog_dump_exception(char ***exception);
+
 void prolog_free_actions(char ***actions);
 void prolog_dump_actions(char ***actions);
 
