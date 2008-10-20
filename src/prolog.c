@@ -39,10 +39,10 @@ enum {
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   collect_predicates(term_t pl_descriptor, int i, void *data);
-static int   collect_result    (term_t pl_retval, void *retval);
+static int   collect_result    (qid_t qid, term_t pl_retval, void *retval);
 static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
-static void  collect_exception (qid_t qid, void *retval);
+static int   collect_exception (qid_t qid, void *retval);
 
 
 static char libpl[PATH_MAX];
@@ -365,13 +365,10 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
     }
     va_end(ap);
 
-    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
-    if ((success = PL_next_solution(qid))) {
-        if (collect_result(pl_retval, retval))
-            success = FALSE;
-    }
-    else
-        collect_exception(qid, retval);
+    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    success = PL_next_solution(qid);
+    if (collect_result(qid, pl_retval, retval) != 0)
+        success = FALSE;
     PL_close_query(qid);
 
     PL_discard_foreign_frame(frame);
@@ -408,13 +405,10 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     for (i = 0; i < p->arity - 1; i++)
         PL_put_atom_chars(pl_args + i, (char *)args[i]);
     
-    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
-    if ((success = PL_next_solution(qid))) {
-        if (collect_result(pl_retval, retval))
-            success = FALSE;
-    }
-    else
-        collect_exception(qid, retval);
+    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    success = PL_next_solution(qid);
+    if (collect_result(qid, pl_retval, retval) != 0)
+        success = FALSE;
     PL_close_query(qid);
     
     PL_discard_foreign_frame(frame);
@@ -446,13 +440,10 @@ prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
         PL_put_atom_chars(pl_args + i, arg);
     }
 
-    qid = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
-    if ((success = PL_next_solution(qid))) {
-        if (collect_result(pl_retval, retval))
-            success = FALSE;
-    }
-    else
-        collect_exception(qid, retval);
+    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    success = PL_next_solution(qid);
+    if (collect_result(qid, pl_retval, retval) != 0)
+        success = FALSE;
     PL_close_query(qid);
     
     PL_discard_foreign_frame(frame);
@@ -852,10 +843,13 @@ is_action_list(term_t list)
  * collect_result
  ********************/
 static int
-collect_result(term_t pl_retval, void *retval)
+collect_result(qid_t qid, term_t pl_retval, void *retval)
 {
     char     *s;
     int       n;
+
+    if (PL_exception(qid) != 0)
+        return collect_exception(qid, retval);
 
     switch (PL_term_type(pl_retval)) {
         
@@ -924,7 +918,6 @@ collect_result(term_t pl_retval, void *retval)
     invalid:
     default:
         printf("cannot handle term of type %d\n", PL_term_type(pl_retval));
-        printf("is_list: %d\n", PL_is_list(pl_retval));
         return EINVAL;
     }
 }
@@ -1043,7 +1036,7 @@ collect_objects(term_t item, int i, void *data)
 /********************
  * collect_exception
  ********************/
-static void
+static int
 collect_exception(qid_t qid, void *retval)
 {
     char       ***objects = (char ***)retval;
@@ -1055,23 +1048,25 @@ collect_exception(qid_t qid, void *retval)
     *objects = NULL;
         
     if ((pl_error = PL_exception(qid)) == 0)
-        return;
+        return 0;
 
     if (!PL_is_compound(pl_error) ||
         !PL_get_name_arity(pl_error, &pl_name, &arity))
-        return;
+        return EINVAL;
     
     if ((name = PL_atom_chars(pl_name)) == NULL)
-        return;
+        return EINVAL;
     
     printf("*** an exception with name '%s' ***\n", name);
 
     if ((objects = ALLOC_ARRAY(char **, 1 + 1 + 1)) == NULL)
-        return;
+        return ENOMEM;
 
     objects[0] = (char **)RESULT_EXCEPTION;
     objects[1] = (char **)STRDUP(name);
     objects[2] = NULL;
+
+    return (objects[1] != NULL ? 0 : ENOMEM);
 }
 
 
@@ -1123,6 +1118,7 @@ static int
 Sclose_shell(void *handle)
 {
     return 0;
+    (void)handle;
 }
 
 
