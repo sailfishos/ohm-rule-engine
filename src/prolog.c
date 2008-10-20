@@ -190,19 +190,23 @@ static int
 load_file(char *path, int foreign)
 {
     char        *loader = foreign ? "load_foreign_library" : "consult";
+    fid_t        frame;
     predicate_t  pr_load;
     term_t       pl_path;
-    
+    int          status;
+
     if (!(pr_load = PL_predicate(loader, 1, NULL)))
-        return 1;
+        return ENOSYS;
+
+    frame = PL_open_foreign_frame();
 
     pl_path = PL_new_term_ref();
     PL_put_atom_chars(pl_path, path);
+    status = PL_call_predicate(NULL, PL_Q_NORMAL, pr_load, pl_path) ? 0 : EIO;
+    
+    PL_discard_foreign_frame(frame);
 
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_load, pl_path))
-        return EIO;
-    else
-        return 0;
+    return status;
 }
 
 
@@ -219,24 +223,33 @@ prolog_predicates(char *query)
 {
     char        *exported   = query ? query : PRED_EXPORTED;
     predicate_t pr_exported = PL_predicate(exported, 1, NULL);
+    fid_t       frame;
     term_t      pl_predlist = PL_new_term_ref();
 
     prolog_predicate_t *predicates;
     int                 npredicate;
 
+    frame = PL_open_foreign_frame();
+
     if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_exported, pl_predlist))
-        return NULL;
+        goto fail;
     
     if ((npredicate = prolog_list_length(pl_predlist)) <= 0)
-        return NULL;
+        goto fail;
 
     if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
-        return NULL;
+        goto fail;
     
     if (prolog_walk_list(pl_predlist, collect_predicates, predicates))
-        return NULL;
+        goto fail;
     
+    PL_discard_foreign_frame(frame);
+
     return predicates;
+
+ fail:
+    PL_discard_foreign_frame(frame);
+    return NULL;
 }
 
 
