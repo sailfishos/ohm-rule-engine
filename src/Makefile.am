@@ -7,6 +7,7 @@ libprolog_la_LDFLAGS = @PROLOG_LIBS@
 libprolog_la_CFLAGS  = -I$(top_builddir)/include \
                        @PROLOG_CFLAGS@ -DPROLOG_HOME=\"@PROLOG_HOME@\"
 
+
 INCLUDES = -I$(top_builddir)/include
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -396,11 +396,11 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
 int
 prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
 {
-    fid_t  frame;
-    qid_t  qid;
-    term_t pl_args, pl_retval;
-    int    i, success;
-
+    fid_t   frame;
+    qid_t   qid;
+    term_t  pl_args, pl_retval;
+    int     i, a, type, success;
+    
     if (narg < p->arity - 1)
         return FALSE;
     else if (narg > p->arity - 1) {
@@ -415,8 +415,18 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     pl_args   = PL_new_term_refs(p->arity);
     pl_retval = pl_args + p->arity - 1;
 
-    for (i = 0; i < p->arity - 1; i++)
-        PL_put_atom_chars(pl_args + i, (char *)args[i]);
+    for (i = 0, a = 0; i < p->arity - 1; i++) {
+        type  = (int)args[a++];
+        switch (type) {
+        case 's': PL_put_atom_chars(pl_args + i, (char *)args[a++]); break;
+        case 'i': PL_put_integer(pl_args + i, (int)args[a++]);       break;
+        case 'd': PL_put_float(pl_args + i, *(double *)args[a++]);   break;
+        default:
+            printf("invalid prolog argument type 0x%x", type);
+            success = FALSE;
+            goto out;
+        }
+    }
     
     qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
@@ -424,6 +434,7 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         success = FALSE;
     PL_close_query(qid);
     
+ out:
     PL_discard_foreign_frame(frame);
     
     return success;
@@ -646,11 +657,19 @@ prolog_free_objects(char ***objects)
     }
     
     for (i = 0; objects[i]; i++) {
-        for (p = 0; objects[i][p]; p++)
-            free(objects[i][p]);
-        free(objects[i]);
+        for (p = 0; objects[i][p]; p += 3) {
+            FREE(objects[i][p]);
+            switch ((int)objects[i][p+1]) {
+            case 's':
+            case 'd': FREE(objects[i][p+2]);
+                break;
+            default:
+                break;
+            }
+        }
+        FREE(objects[i]);
     }
-    free(objects - 1);
+    FREE(objects - 1);
 }
 
 
@@ -660,8 +679,8 @@ prolog_free_objects(char ***objects)
 void
 prolog_dump_objects(char ***objects)
 {
-    int   i, p;
-    char *t;
+    int   i, p, type;
+    char *field, *value, *t;
 
     if (objects == NULL)
         return;
@@ -673,9 +692,30 @@ prolog_dump_objects(char ***objects)
     }
 
     for (i = 0; objects[i]; i++) {
+        if (objects[i][0] != NULL && !strcmp(objects[i][0], "name") &&
+            objects[i][2] != NULL) {
+            printf("%s: ", objects[i][2]);
+            p = 3;
+        }
+        else
+            p = 0;
+
         printf("{ ");
-        for (p = 0, t = ""; objects[i][p]; p += 2, t = ", ")
-            printf("%s%s:%s", t, objects[i][p], objects[i][p+1]);
+        t = "";
+        while (objects[i][p] != NULL) {
+            field = objects[i][p];
+            type  = (int)objects[i][p+1];
+            value = objects[i][p+2];
+            printf("%s%s: ", t, field);
+            switch (type) {
+            case 's': printf("'%s'", value);          break;
+            case 'i': printf("%d", (int)value);       break;
+            case 'd': printf("%f", *(double *)value); break;
+            default:  printf("<unknown>");            break;
+            }
+            p += 3;
+            t = ", ";
+        }
         printf(" }\n");
     }
 }
@@ -989,15 +1029,18 @@ collect_object(term_t item, int i, void *data)
 {
     char   **object = (char **)data;
     term_t   pl_field, pl_value;
-    char    *field, *value;
+    char    *field, *value, *type;
+    double  *d;
+    size_t   dummy;
 
     if (i == 0) {
         if (!PL_get_chars(item, &field, CVT_ALL))
             return EINVAL;
         
         if ((object[0] = STRDUP(OBJECT_NAME)) == NULL ||
-            (object[1] = STRDUP(field))  == NULL)
+            (object[2] = STRDUP(field)) == NULL)
             return ENOMEM;
+        object[1] = (char *)'s';
     }
     else {
         pl_field = PL_new_term_refs(2);
@@ -1007,13 +1050,49 @@ collect_object(term_t item, int i, void *data)
             return EINVAL;
         if (!PL_get_head(pl_value, pl_value))
             return EINVAL;
-        if (!PL_get_chars(pl_field, &field, CVT_ALL) ||
-            !PL_get_chars(pl_value, &value, CVT_ALL))
+        if (!PL_get_chars(pl_field, &field, CVT_ALL))
             return EINVAL;
-            
-        if ((object[2*i  ] = STRDUP(field)) == NULL ||
-            (object[2*i+1] = STRDUP(value)) == NULL)
+        
+        if ((field = STRDUP(field)) == NULL)
             return ENOMEM;
+
+        switch (PL_term_type(pl_value)) {
+        case PL_ATOM:
+            if (!PL_get_atom_chars(pl_value, &value))
+                return EINVAL;
+            value = STRDUP(value);
+            type  = (char *)'s';
+            break;
+        case PL_STRING:
+            if (!PL_get_string_chars(pl_value, &value, &dummy))
+                return EINVAL;
+            value = STRDUP(value);
+            type  = (char *)'s';
+            break;
+        case PL_INTEGER:
+            /* XXX TODO: change object to void ** to avoid breaking
+               gcc's strict aliasing */
+            if (!PL_get_integer(pl_value, (int *)(void *)&value))
+                return EINVAL;
+            type = (char *)'i';
+            break;
+        case PL_FLOAT:
+            if (ALLOC_OBJ(d) == NULL)
+                return ENOMEM;
+            if (!PL_get_float(pl_value, d))
+                return EINVAL;
+            value = (char *)d;
+            type  = (char *)'d';
+            break;
+        default:
+            printf("*** invalid prolog type (%d) for object field\n",
+                   PL_term_type(pl_value));
+            return EINVAL;
+        }
+        
+        object[3*i  ] = field;
+        object[3*i+1] = type;
+        object[3*i+2] = value;
     }
 
     return 0;
@@ -1034,7 +1113,7 @@ collect_objects(term_t item, int i, void *data)
         return EINVAL;
     
     if (length > 0) {
-        if ((object = ALLOC_ARRAY(char *, 2 * length + 1)) == NULL)
+        if ((object = ALLOC_ARRAY(char *, 3 * length + 1)) == NULL)
             return ENOMEM;
         
         if ((err = prolog_walk_list(item, collect_object, object)) != 0)
