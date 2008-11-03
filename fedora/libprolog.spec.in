@@ -73,6 +73,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %files -n ohm-plugin-ruleengine
 %defattr(-,root,root,-)
 %{_libdir}/ohm/libohm_rule_engine.so
+%{_sysconfdir}/ohm/plugin.d/rule_engine.ini
 
 %changelog
 * Wed Apr 24 2008 Krisztian Litkey <krisztian.litkey@nokia.com> - 
