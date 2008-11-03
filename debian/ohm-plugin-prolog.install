@@ -1,1 +1,2 @@
-usr/lib/ohm/libohm_prolog.so
+usr/lib/ohm/libohm_rule_engine.so
+etc/ohm/plugin.d/rule_engine.ini

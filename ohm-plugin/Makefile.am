@@ -1,5 +1,8 @@
 pkglib_LTLIBRARIES = libohm_rule_engine.la
 pkglibdir          = @OHM_PLUGIN_DIR@
+EXTRA_DIST         = $(config_DATA)
+configdir          = $(sysconfdir)/ohm/plugin.d
+config_DATA        = rule_engine.ini
 
 libohm_rule_engine_la_SOURCES = rule-engine.c
 libohm_rule_engine_la_CFLAGS  = @OHM_PLUGIN_CFLAGS@ @PROLOG_CFLAGS@ \
