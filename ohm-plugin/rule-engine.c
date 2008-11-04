@@ -13,6 +13,7 @@
 #include <prolog/prolog.h>
 
 #include <ohm/ohm-plugin.h>
+#include <ohm/ohm-plugin-debug.h>
 #include <ohm/ohm-plugin-log.h>
 
 #define PLUGIN_NAME    "rule_engine"
@@ -35,6 +36,12 @@ static prolog_predicate_t *predicates;
 static int                 npredicate; 
 static int                 busy;
 
+/* debug flags */
+static int DBG_PRED, DBG_RULE;
+
+OHM_DEBUG_PLUGIN(rule_engine,
+    OHM_DEBUG_FLAG("predicates", "predicate handling", &DBG_PRED),
+    OHM_DEBUG_FLAG("rules"     , "rule processing"   , &DBG_RULE));
 
 
 /*****************************************************************************
@@ -55,10 +62,13 @@ plugin_init(OhmPlugin *plugin)
     char **rules;
     int    stack;
     
+    if (!OHM_DEBUG_INIT(rule_engine))
+        OHM_WARNING("rule engine failed to initialize debugging");
+    
     extensions = get_extensions(param_extensions);
     rules      = get_rules(param_rules);
     stack      = get_stack(param_stack);
-
+    
     if (rules != NULL)
         if (setup(extensions, rules, stack) != 0)
             exit(1);
@@ -105,8 +115,12 @@ OHM_EXPORTABLE(int, find_rule, (char *name, int arity))
         return NO_PREDICATE;
     
     for (i = 0, p = predicates; p->name != NULL; i++, p++)
-        if ((arity < 0 || p->arity == arity) && !strcmp(p->name, name))
+        if ((arity < 0 || p->arity == arity) && !strcmp(p->name, name)) {
+            OHM_DEBUG(DBG_PRED, "predicate %s/%d: rule #%d", name, arity, i);
             return i;
+        }
+
+    OHM_DEBUG(DBG_PRED, "could not find predicate %s/%d", name, arity);
 
     return NO_PREDICATE;
 }
@@ -117,9 +131,14 @@ OHM_EXPORTABLE(int, find_rule, (char *name, int arity))
  ********************/
 OHM_EXPORTABLE(int, eval_rule, (int rule, void *retval, void **args, int narg))
 {
-    if (rule < 0 || rule >= npredicate)
+    if (rule < 0 || rule >= npredicate) {
+        OHM_DEBUG(DBG_RULE, "non-existing rule #%d requested", rule);
         return ENOENT;
+    }
     
+    OHM_DEBUG(DBG_RULE, "invoking rule #%d (%s/%d)", rule,
+              predicates[rule].name, predicates[rule].arity);
+
     return prolog_acall(predicates + rule, retval, args, narg);
 }
 
@@ -182,17 +201,21 @@ setup(char **extensions, char **files, int stack)
 
     busy = TRUE;
     
-    for (p = extensions[i=0]; p != NULL; p = extensions[++i])
+    for (p = extensions[i=0]; p != NULL; p = extensions[++i]) {
+        OHM_INFO("rule-engine: loading extension %s...", p);
         if (prolog_load_extension(p)) {
             OHM_WARNING("%s: failed to load extension \"%s\"", __FUNCTION__, p);
             return EINVAL;
         }
+    }
 
-    for (p = files[i=0]; p != NULL; p = files[++i])
+    for (p = files[i=0]; p != NULL; p = files[++i]) {
+        OHM_INFO("rule-engine: loading rule file %s...", p);
         if (prolog_load_file(p)) {
             OHM_WARNING("%s: failed to load file \"%s\"", __FUNCTION__, p);
             return EINVAL;
         }
+    }
 
     discover_predicates();
     
@@ -214,13 +237,22 @@ discover_predicates(void)
     
     if (predicates != NULL)
         return predicates;
-    
-    if ((predicates = prolog_predicates(NULL)) == NULL)
+
+    if (!busy) {                 /* avoid doing anything if we're not set up */
+        OHM_ERROR("rule-engine: not set up, cannot discover predicates");
         return NULL;
+    }
+    
+    if ((predicates = prolog_predicates(NULL)) == NULL) {
+        OHM_WARNING("rule-engine: no exported predicates found");
+        return NULL;
+    }
     
     npredicate = 0;
-    for (p = predicates; p->name != NULL; p++)
+    for (p = predicates; p->name != NULL; p++) {
+        OHM_INFO("rule-engine: discovered predicate %s/%d", p->name, p->arity);
         npredicate++;
+    }
     
     return predicates;
 }
@@ -248,8 +280,13 @@ get_extensions(const char *param)
 {
     static char *extensions[2];
 
-    if (param == NULL)
+    if (param == NULL) {
+        OHM_INFO("rule-engine: no extensions configured");
         return NULL;
+    }
+
+    OHM_INFO("rule-engine: using prolog extensions: %s", param);
+    
 
     /* XXX TODO
      * implement support for parsing param to potentially multiple extensions
@@ -269,12 +306,16 @@ get_rules(const char *param)
 {
     static char *rules[2];
 
-    if (param == NULL)
+    if (param == NULL) {
+        OHM_INFO("rule-engine: no rules configured");
         return NULL;
+    }
 
     /* XXX TODO
      * implement support for parsing param to potentially multiple rule files
      */
+
+    OHM_INFO("rule-engine: using prolog rules: %s", param);
 
     rules[0] = (char *)param;
     rules[1] = NULL;
@@ -291,15 +332,25 @@ get_stack(const char *param)
     int   size;
     char *end;
 
-    if (param == NULL || *param == '\0')
-        return DEFAULT_STACK;
+    if (param == NULL || *param == '\0') {
+        OHM_INFO("rule-engine: no stacksize configured");
+        size = DEFAULT_STACK;
+    }
+    else {
+        size = (int)strtol(param, &end, 10);
+    
+        if (end && *end != '\0') {
+            OHM_ERROR("%s: invalid stack size '%s'", PLUGIN_NAME, param);
+            exit(1);
+        }
+    
+        if (!size)
+            size = DEFAULT_STACK;
+    }
+    
+    OHM_INFO("rule-engine: using stack size %dk", size);
 
-    size = (int)strtol(param, &end, 10);
-    
-    if (end && *end != '\0')
-        g_error("%s: Invalid stack size '%s' requested.", PLUGIN_NAME, param);
-    
-    return size ? size : DEFAULT_STACK;
+    return size;
 }
 
 
