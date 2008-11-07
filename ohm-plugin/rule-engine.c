@@ -72,8 +72,6 @@ plugin_init(OhmPlugin *plugin)
     if (rules != NULL)
         if (setup(extensions, rules, stack) != 0)
             exit(1);
-    
-    (void)plugin;
 }
 
 
@@ -203,7 +201,7 @@ setup(char **extensions, char **files, int stack)
     
     for (p = extensions[i=0]; p != NULL; p = extensions[++i]) {
         OHM_INFO("rule-engine: loading extension %s...", p);
-        if (prolog_load_extension(p)) {
+        if (!prolog_load_extension(p)) {
             OHM_WARNING("%s: failed to load extension \"%s\"", __FUNCTION__, p);
             return EINVAL;
         }
@@ -211,7 +209,7 @@ setup(char **extensions, char **files, int stack)
 
     for (p = files[i=0]; p != NULL; p = files[++i]) {
         OHM_INFO("rule-engine: loading rule file %s...", p);
-        if (prolog_load_file(p)) {
+        if (!prolog_load_file(p)) {
             OHM_WARNING("%s: failed to load file \"%s\"", __FUNCTION__, p);
             return EINVAL;
         }

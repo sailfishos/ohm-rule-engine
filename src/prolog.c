@@ -190,23 +190,42 @@ static int
 load_file(char *path, int foreign)
 {
     char        *loader = foreign ? "load_foreign_library" : "consult";
-    fid_t        frame;
     predicate_t  pr_load;
+    fid_t        frame;
+    qid_t        qid;
+    char       **exception;
     term_t       pl_path;
-    int          status;
+    int          success;
 
-    if (!(pr_load = PL_predicate(loader, 1, NULL)))
-        return ENOSYS;
+    /*
+     * Notes:
+     *     We do our best to detect errors while loading files. However
+     *     consult does not seem to fail or raise an exception on syntax
+     *     errors, it simply prints an error message instead. Hence we
+     *     fail to detect errors while loading native prolog files.
+     *
+     *     Hopefully we can find an acceptable way to detect syntax errors
+     *     and don't need to revert to ugly hacks like reading and parsing
+     *     our own output for errors.
+     */
 
     frame = PL_open_foreign_frame();
 
+    pr_load = PL_predicate(loader, 1, NULL);
     pl_path = PL_new_term_ref();
     PL_put_atom_chars(pl_path, path);
-    status = PL_call_predicate(NULL, PL_Q_NORMAL, pr_load, pl_path) ? 0 : EIO;
     
+    qid     = PL_open_query(NULL, QUERY_FLAGS, pr_load, pl_path);
+    success = PL_next_solution(qid);
+    if (PL_exception(qid)) {
+        collect_exception(qid, &exception);
+        success = FALSE;
+    }
+    PL_close_query(qid);
+
     PL_discard_foreign_frame(frame);
 
-    return status;
+    return success;
 }
 
 
@@ -755,8 +774,8 @@ prolog_free_exception(char ***exception)
         return;
     }
 
-    FREE((char *)exception[1]);
-    FREE(exception);
+    FREE((char *)exception[0]);
+    FREE(exception - 1);
 }
 
 
@@ -1221,7 +1240,7 @@ parse_exception(term_t pl_exception)
 static int
 collect_exception(qid_t qid, void *retval)
 {
-    char       ***objects = (char ***)retval;
+    char       ***objects;
     term_t        pl_error;
     atom_t        pl_name;
     int           arity;
@@ -1230,8 +1249,16 @@ collect_exception(qid_t qid, void *retval)
 
     *objects = NULL;
         
-    if ((pl_error = PL_exception(qid)) == 0)
+    if ((pl_error = PL_exception(qid)) == 0) {
+        *(char **)retval = NULL;
         return 0;
+    }
+
+#if 0
+    error = NULL;
+    PL_get_chars(pl_error, &error, CVT_WRITE | BUF_DISCARDABLE);
+    printf("*** write(exception): \"%s\" ***\n", error ? error : "<unknown>");
+#endif
 
     if (!PL_is_compound(pl_error) ||
         !PL_get_name_arity(pl_error, &pl_name, &arity))
@@ -1253,6 +1280,8 @@ collect_exception(qid_t qid, void *retval)
     objects[0] = (char **)RESULT_EXCEPTION;
     objects[1] = (char **)error;
     objects[2] = NULL;
+
+    *(char ****)retval = objects + 1;
 
     return (objects[1] != NULL ? 0 : ENOMEM);
 }
