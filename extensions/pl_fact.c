@@ -140,8 +140,16 @@ fact_field_term(OhmFact *fact, char *field, term_t term)
         i = g_value_get_int(value);
         PL_put_integer(term, i); 
         break;
+    case G_TYPE_UINT:
+        i = g_value_get_uint(value);
+        PL_put_integer(term, i); 
+        break;
     case G_TYPE_LONG:
         i = g_value_get_long(value);
+        PL_put_integer(term, i);
+        break;
+    case G_TYPE_ULONG:
+        i = g_value_get_ulong(value);
         PL_put_integer(term, i);
         break;
     case G_TYPE_DOUBLE: 
@@ -245,13 +253,13 @@ pl_fact_exists(term_t pl_name,
         ctx->facts = g_slist_next(ctx->facts);
 
         if (!fact_values(ctx, f, &pl_values) && PL_unify(pl_list, pl_values)) {
-            PL_close_foreign_frame(frame);
+            PL_close_foreign_frame(frame); /* PL_discard_foreign_frame ??? */
             PL_retry_address(ctx);
         }
         
         PL_rewind_foreign_frame(frame);
     }
-    PL_close_foreign_frame(frame);
+    PL_close_foreign_frame(frame);  /* PL_discard_foreign_frame ??? */
     
  nomore:
     if (ctx->fields)
