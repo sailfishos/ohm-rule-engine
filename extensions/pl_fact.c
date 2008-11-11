@@ -89,6 +89,7 @@ get_field_names(context_t *ctx, term_t pl_fields)
 }
 
 
+#ifdef __STRING_ONLY_FIELDS__
 /********************
  * fact_field_value
  ********************/
@@ -99,7 +100,7 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
     
     if ((value = ohm_fact_get(fact, field)) == NULL)
         return NULL;
-    
+
     if (G_VALUE_HOLDS_STRING(value)) {
         snprintf(buf, size, (char *)g_value_get_string(value));
         return buf;
@@ -118,6 +119,50 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
     return buf;
 }
 
+#else
+
+/********************
+ * fact_field_term
+ ********************/
+static char *
+fact_field_term(OhmFact *fact, char *field, term_t term)
+{
+    GValue *value, gstr = {0,};
+    int     i;
+    double  d;
+    char   *s;
+
+    if ((value = ohm_fact_get(fact, field)) == NULL)
+        return NULL;
+
+    switch (G_VALUE_TYPE(value)) {
+    case G_TYPE_INT:
+        i = g_value_get_int(value);
+        PL_put_integer(term, i); 
+        break;
+    case G_TYPE_LONG:
+        i = g_value_get_long(value);
+        PL_put_integer(term, i);
+        break;
+    case G_TYPE_DOUBLE: 
+        d = g_value_get_double(value);
+        PL_put_float(term, d);
+        break;
+    case G_TYPE_FLOAT:
+        d = 1.0 * g_value_get_float(value);
+        PL_put_float(term, d);
+        break;
+    case G_TYPE_STRING:
+        s = g_value_get_string(value);
+        PL_put_atom_chars(term, s);
+        break;
+    default:
+        return FALSE;
+    }
+
+    return TRUE;
+}
+#endif
 
 /********************
  * fact_values
@@ -132,9 +177,14 @@ fact_values(context_t *ctx, OhmFact *fact, term_t *pl_values)
 
     PL_put_nil(list);
     while (n-- > 0) {
+#ifdef __STRING_ONLY_FIELDS__
         if (!fact_field_value(fact, ctx->fields[n], value, sizeof(value)))
             return EINVAL;
         PL_put_atom_chars(item, value);
+#else
+        if (!fact_field_term(fact, ctx->fields[n], item))
+            return EINVAL;
+#endif
         PL_cons_list(list, item, list);
     }
     
