@@ -26,7 +26,7 @@ Description: Development files for the prolog convenience library.
 Package: prolog-extensions
 Architecture: any
 Section: libs
-Depends: ${shlibs:Depends}, swi-prolog
+Depends: ${shlibs:Depends}, swi-prolog, ohm
 Description: Prolog extensions for the Nokia policy framework
  A set of prolog extensions needed by the policy framework (and/or its
  prototype implementation).
@@ -34,6 +34,6 @@ Description: Prolog extensions for the Nokia policy framework
 Package: ohm-plugin-prolog
 Architecture: any
 Section: libs
-Depends: ${shlibs:Depends}, swi-prolog, ohm
+Depends: ${shlibs:Depends}, swi-prolog, prolog-extensions, ohm
 Description: A prolog-based OHM rule engine plugin.
  A prolog-based OHM rule engine plugin.
