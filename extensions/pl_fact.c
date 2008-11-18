@@ -48,7 +48,7 @@ get_field_names(context_t *ctx, term_t pl_fields)
 #define MAX_LENGTH 64                           /* max length of a field name */
 
     term_t  pl_list, pl_head;
-    int     i, n, left;
+    int     i, n, left, dummy;
     size_t  size;
     char   *p, *field;
     
@@ -68,8 +68,18 @@ get_field_names(context_t *ctx, term_t pl_fields)
     pl_list = PL_copy_term_ref(pl_fields);      /* XXX is this really needed? */
     pl_head = PL_new_term_ref();
     for (i = 0; i < n && PL_get_list(pl_list, pl_head, pl_list); i++) {
-        if (!PL_get_atom_chars(pl_head, &field))
+        switch (PL_term_type(pl_head)) {
+        case PL_ATOM:
+            if (!PL_get_atom_chars(pl_head, &field))
+                goto fail;
+            break;
+        case PL_STRING:
+            if (!PL_get_string_chars(pl_head, &field, &dummy))
+                goto fail;
+            break;
+        default:
             goto fail;
+        }
         ctx->fields[i] = p;
         size = snprintf(p, left, "%s", field);
         p    += size + 1;
