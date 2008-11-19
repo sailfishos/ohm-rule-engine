@@ -4,6 +4,9 @@ SHELL+= -e
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+GIT_HEAD := $(shell git --version >& /dev/null && \
+               git log -1 --pretty='format:%H' HEAD || echo "no git")
+
 DEB_TAR_SRCDIR = ${DEB_SOURCE_PACKAGE}-${DEB_UPSTREAM_VERSION}
 
 DEB_CONFIGURE_USER_FLAGS = --disable-static
@@ -24,14 +27,23 @@ debian/stamp-autogen:
 	cd $(DEB_BUILDDIR) && ./autogen.sh
 	touch $@
 
+debian/control::
+	@sed -e 's/__GIT_ID__/$(GIT_HEAD)/g' debian/control.in > $@
+
 clean::
 	-rm -rf debian/stamp-autogen
 
-#binary-post-install/ohm::
-#	rm -f debian/tmp/usr/lib/*.la
-#common-binary-post-install-arch:: list-missing
+binary-post-install/%::
+	rm -f debian/*/usr/lib/*.la
+common-binary-post-install-arch:: list-missing
 
 # do not include docs and changelogs in these packages
-#DEB_INSTALL_DOCS_libdres := --no-act
-#DEB_INSTALL_CHANGELOGS_libdres := --no-act
+DEB_INSTALL_DOCS_libprolog0 := --no-act
+DEB_INSTALL_CHANGELOGS_libprolog0 := --no-act
+DEB_INSTALL_DOCS_libprolog-dev := --no-act
+DEB_INSTALL_CHANGELOGS_libprolog-dev := --no-act
+DEB_INSTALL_DOCS_prolog-extensions := --no-act
+DEB_INSTALL_CHANGELOGS_prolog-extensions := --no-act
+DEB_INSTALL_DOCS_ohm-plugin-prolog := --no-act
+DEB_INSTALL_CHANGELOGS_ohm-plugin-prolog := --no-act
 
