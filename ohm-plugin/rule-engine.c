@@ -228,57 +228,37 @@ setup(char **extensions, char **files, int stack)
 static int
 discover_predicates(void)
 {
-#define IS_UNDEFINED(p) ({                                              \
-            prolog_predicate_t *u;                                      \
-            int                 found;                                  \
-                                                                        \
-            found = FALSE;                                              \
-            if (undefined != NULL)                                      \
-                for (u = undefined; u->name != NULL; u++)               \
-                    if ((p)->arity == u->arity &&                       \
-                        !strcmp((p)->name, u->name) &&                  \
-                        !strcmp((p)->module, u->module)) {              \
-                        found = TRUE;                                   \
-                        break;                                          \
-                    }                                                   \
-            found; })
-    
     prolog_predicate_t *undefined, *p;
     int                 err;
     
     if (predicates != NULL)
         return 0;
-
+    
     if (!busy) {                 /* avoid doing anything if we're not set up */
         OHM_ERROR("rule-engine: not set up, cannot discover rules");
         return EAGAIN;
     }
     
-    if ((predicates = prolog_predicates(NULL)) == NULL) {
-        OHM_ERROR("rule-engine: no exported rules found");
-        return ENOENT;
+    if ((err = prolog_rules(&predicates, &undefined)) != 0) {
+        OHM_ERROR("rule-engine: failed to find exported rules");
+        return err;
     }
-
-    undefined = prolog_undefined();
-
-    npredicate = 0;
-    err        = 0;
+    
     for (p = predicates; p->name != NULL; p++) {
-        if (IS_UNDEFINED(p)) {
-            OHM_ERROR("rule-engine: undefined rule %s:%s/%d", p->module,
-                      p->name, p->arity);
-            err = ENOENT;
-        }
-        else
-            OHM_INFO("rule-engine: exported rule %s:%s/%d", p->module, p->name,p->arity);
-        
+        OHM_INFO("rule-engine: exported rule %s:%s/%d",
+                 p->module, p->name,p->arity);
         npredicate++;
     }
-    
+
+    if (undefined) {
+        for (p = undefined; p->name != NULL; p++)
+            OHM_ERROR("rule-engine: undefined rule %s:%s/%d",
+                     p->module, p->name,p->arity);
+        err = ENOENT;
+    }
+
     if (err != 0)
         exit(err);
-    
-    prolog_free_predicates(undefined);
     
     return 0;
 }

@@ -28,7 +28,6 @@
     } while (0)
 
 
-#undef __OLD_EXPORT_MECHANISM__
 #define PRED_EXPORTED "exported"
 #define PRED_RULES    "rules"
 
@@ -257,11 +256,10 @@ load_file(char *path, int foreign)
 prolog_predicate_t *
 prolog_predicates(char *query)
 {
-#ifdef __OLD_EXPORT_MECHANISM__
-    char        *exported   = query ? query : PRED_EXPORTED;
-    predicate_t pr_exported = PL_predicate(exported, 1, NULL);
-    fid_t       frame;
-    term_t      pl_predlist = PL_new_term_ref();
+    char        *exported    = query ? query : PRED_EXPORTED;
+    predicate_t  pr_exported = PL_predicate(exported, 1, NULL);
+    fid_t        frame;
+    term_t       pl_predlist = PL_new_term_ref();
 
     prolog_predicate_t *predicates;
     int                 npredicate;
@@ -291,50 +289,6 @@ prolog_predicates(char *query)
     prolog_free_predicates(predicates);
     
     return NULL;
-#else /* !__OLD_EXPORT_MECHANISM__ */
-    char        *rules    = query ? query : PRED_RULES;
-    predicate_t  pr_rules = PL_predicate(rules, 2, NULL);
-    fid_t       frame;
-    term_t      pl_predlist = PL_new_term_refs(2);
-
-    prolog_predicate_t *predicates;
-    int                 ndefined, nundefined, npredicate;
-
-    predicates = NULL;
-
-    frame = PL_open_foreign_frame();
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_predlist))
-        goto fail;
-    
-    if ((ndefined = prolog_list_length(pl_predlist)) <= 0)
-        goto fail;
-
-    if ((nundefined = prolog_list_length(pl_predlist + 1)) < 0)
-        goto fail;
-    
-    npredicate = ndefined + nundefined;
-
-    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
-        goto fail;
-    
-    if (prolog_walk_list(pl_predlist, collect_exported, predicates))
-        goto fail;
-
-    if (prolog_walk_list(pl_predlist + 1, collect_exported,
-                         predicates + ndefined))
-        goto fail;
-    
-    PL_discard_foreign_frame(frame);
-    
-    return predicates;
-
- fail:
-    PL_discard_foreign_frame(frame);
-    prolog_free_predicates(predicates);
-    
-    return NULL;
-#endif
 }
 
 
@@ -344,8 +298,6 @@ prolog_predicates(char *query)
 prolog_predicate_t *
 prolog_undefined(void)
 {
-#ifdef __OLD_EXPORT_MECHANISM__
-#if 1
 #define CHUNK 8
 
     predicate_t pr_prop = PL_predicate("predicate_property", 2, NULL);
@@ -369,10 +321,6 @@ prolog_undefined(void)
     qid = PL_open_query(NULL, QUERY_FLAGS, pr_prop, pl_args);
     while (PL_next_solution(qid)) {
         if (npredicate && ((npredicate & (CHUNK - 1)) == CHUNK - 1)) {
-#if 0
-            printf("npredicate = %d, reallocating to %d\n",
-                   npredicate, npredicate + CHUNK + 1);
-#endif
             if (!REALLOC_ARR(predicates, npredicate+1, npredicate+CHUNK+1))
                 goto fail;
         }
@@ -395,122 +343,67 @@ prolog_undefined(void)
     
     return NULL;
 #undef CHUNK
+}
 
-#else /* !1 */
 
-    predicate_t pr_prop = PL_predicate("predicate_property", 2, NULL);
-    term_t      pl_args, pl_list, pl_item;
+/********************
+ * prolog_rules
+ ********************/
+int
+prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
+{
+    predicate_t pr_rules = PL_predicate(PRED_RULES, 2, NULL);
     fid_t       frame;
-    qid_t       qid;
+    term_t      pl_args;
+    int         err, nrule, nundef;
 
-    prolog_predicate_t *predicates;
-    int                 npredicate;
-
-    predicates = NULL;
-    npredicate = 0;
-
-    frame = PL_open_foreign_frame();
+    if (rules == NULL || undef == NULL)
+        return EINVAL;
+    
+    *rules = NULL;
+    *undef = NULL;
+    
+    frame   = PL_open_foreign_frame();
     pl_args = PL_new_term_refs(2);
-    pl_list = PL_new_term_ref(); PL_put_nil(pl_list);
-    pl_item = PL_new_term_ref();
 
-    PL_unify_atom_chars(pl_args + 1, "undefined");
+    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_args))
+        return ENOENT;
     
-    qid = PL_open_query(NULL, QUERY_FLAGS, pr_prop, pl_args);
-    while (PL_next_solution(qid)) {
-        char *p;
+    if ((nrule = prolog_list_length(pl_args)) <= 0)
+        return ENOENT;
 
-        if (!PL_get_chars(pl_args, &p, CVT_WRITE))
-            printf("*** failed to print undefined predicate head...\n");
-        else
-            printf("*** undefined predicate %s\n", p);
-
-        PL_put_variable(pl_item);
-        PL_unify(pl_item, pl_args);
-
-        PL_cons_list(pl_list, pl_item, pl_list);
-        
-        if (!PL_get_chars(pl_list, &p, CVT_WRITE))
-            printf("*** failed to print list...\n");
-        else
-            printf("*** list %s\n", p);
-
-
-        printf("*** list: %d (%d)\n", prolog_list_length(pl_list), pl_list);
-        
-        npredicate++;
-    }
-
-    printf("*** npredicate: %d\n", npredicate);
-
-    printf("*** list: %d (%d)\n", prolog_list_length(pl_list), pl_list);
-
-    if ((npredicate = prolog_list_length(pl_list)) <= 0)
-        goto fail;
-
-    printf("*** found %d undefined predicates\n", npredicate);
+    if ((nundef = prolog_list_length(pl_args + 1)) < 0)
+        return EINVAL;
     
-    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
-        goto fail;
-
-    if (prolog_walk_list(pl_list, collect_undefined, predicates))
-        goto fail;
-    
-    PL_close_query(qid);
-    PL_discard_foreign_frame(frame);
-
-    return predicates;
-
- fail:
-    PL_close_query(qid);
-    PL_discard_foreign_frame(frame);
-    prolog_free_predicates(predicates);
-    
-    return NULL;
-
-#endif /* !1 */
-
-#else /* !__OLD_EXPORT_MECHANISM__ */
-
-    predicate_t  pr_rules = PL_predicate(PRED_RULES, 2, NULL);
-    fid_t        frame;
-    term_t       pl_predlist = PL_new_term_refs(2);
-
-    prolog_predicate_t *predicates;
-    int                 npredicate, err;
-
-    predicates = NULL;
-
-    frame = PL_open_foreign_frame();
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_predlist))
-        goto fail;
-    
-    if ((npredicate = prolog_list_length(pl_predlist + 1)) <= 0) {
-        printf("*** got %d predicates...\n", npredicate);
+    if ((*rules = ALLOC_ARRAY(prolog_predicate_t, nrule + 1)) == NULL) {
+        err = ENOMEM;
         goto fail;
     }
-
-    printf("*** got %d predicates...\n", npredicate);
-
-    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
+ 
+    if ((err = prolog_walk_list(pl_args, collect_exported, *rules)) != 0)
         goto fail;
-    
-    if ((err=prolog_walk_list(pl_predlist + 1, collect_exported, predicates))){
-        printf("failed to collect predicates: %d (%s)\n", err, strerror(err));
-        goto fail;
+
+    if (nundef > 0) {
+        if ((*undef = ALLOC_ARRAY(prolog_predicate_t, nundef + 1)) == NULL) {
+            err = ENOMEM;
+            goto fail;
+        }
+        if ((err = prolog_walk_list(pl_args+1, collect_exported, *undef)) != 0)
+            goto fail;
     }
     
     PL_discard_foreign_frame(frame);
     
-    return predicates;
+    return 0;
 
  fail:
     PL_discard_foreign_frame(frame);
-    prolog_free_predicates(predicates);
+    if (rules)
+        prolog_free_predicates(*rules);
+    if (undef)
+        prolog_free_predicates(*undef);
     
     return NULL;
-#endif
 }
 
 
