@@ -15,9 +15,25 @@
 #  define PATH_MAX 256
 #endif
 
+#define PROLOG_ERROR(fmt, args...) do {                 \
+        fprintf(stderr, "[ERROR] "fmt"\n", ## args);    \
+    } while (0)
+
+#define PROLOG_WARNING(fmt, args...) do {               \
+        fprintf(stderr, "[WARNING] "fmt"\n", ## args);  \
+    } while (0)
+
+#define PROLOG_INFO(fmt, args...) do {                  \
+        fprintf(stdout, "[WARNING] "fmt"\n", ## args);  \
+    } while (0)
+
+
+#undef __OLD_EXPORT_MECHANISM__
+#define PRED_EXPORTED "exported"
+#define PRED_RULES    "rules"
+
 #define ALLOC_ARRAY ALLOC_ARR
 #define LIBPROLOG     "libprolog.so"
-#define PRED_EXPORTED "exported"
 #define OBJECT_NAME   "name"
 
 #define QUERY_FLAGS (PL_Q_NORMAL | PL_Q_NODEBUG | PL_Q_CATCH_EXCEPTION)
@@ -38,7 +54,8 @@ enum {
 
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
-static int   collect_predicates(term_t pl_descriptor, int i, void *data);
+static int   collect_exported  (term_t pl_descriptor, int i, void *data);
+static int   collect_undefined (term_t pl_descriptor, int i, void *data);
 static int   collect_result    (qid_t qid, term_t pl_retval, void *retval);
 static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
@@ -240,6 +257,7 @@ load_file(char *path, int foreign)
 prolog_predicate_t *
 prolog_predicates(char *query)
 {
+#ifdef __OLD_EXPORT_MECHANISM__
     char        *exported   = query ? query : PRED_EXPORTED;
     predicate_t pr_exported = PL_predicate(exported, 1, NULL);
     fid_t       frame;
@@ -247,6 +265,8 @@ prolog_predicates(char *query)
 
     prolog_predicate_t *predicates;
     int                 npredicate;
+
+    predicates = NULL;
 
     frame = PL_open_foreign_frame();
 
@@ -259,16 +279,238 @@ prolog_predicates(char *query)
     if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
         goto fail;
     
-    if (prolog_walk_list(pl_predlist, collect_predicates, predicates))
+    if (prolog_walk_list(pl_predlist, collect_exported, predicates))
         goto fail;
     
+    PL_discard_foreign_frame(frame);
+    
+    return predicates;
+
+ fail:
+    PL_discard_foreign_frame(frame);
+    prolog_free_predicates(predicates);
+    
+    return NULL;
+#else /* !__OLD_EXPORT_MECHANISM__ */
+    char        *rules    = query ? query : PRED_RULES;
+    predicate_t  pr_rules = PL_predicate(rules, 2, NULL);
+    fid_t       frame;
+    term_t      pl_predlist = PL_new_term_refs(2);
+
+    prolog_predicate_t *predicates;
+    int                 ndefined, nundefined, npredicate;
+
+    predicates = NULL;
+
+    frame = PL_open_foreign_frame();
+
+    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_predlist))
+        goto fail;
+    
+    if ((ndefined = prolog_list_length(pl_predlist)) <= 0)
+        goto fail;
+
+    if ((nundefined = prolog_list_length(pl_predlist + 1)) < 0)
+        goto fail;
+    
+    npredicate = ndefined + nundefined;
+
+    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
+        goto fail;
+    
+    if (prolog_walk_list(pl_predlist, collect_exported, predicates))
+        goto fail;
+
+    if (prolog_walk_list(pl_predlist + 1, collect_exported,
+                         predicates + ndefined))
+        goto fail;
+    
+    PL_discard_foreign_frame(frame);
+    
+    return predicates;
+
+ fail:
+    PL_discard_foreign_frame(frame);
+    prolog_free_predicates(predicates);
+    
+    return NULL;
+#endif
+}
+
+
+/********************
+ * prolog_undefined
+ ********************/
+prolog_predicate_t *
+prolog_undefined(void)
+{
+#ifdef __OLD_EXPORT_MECHANISM__
+#if 1
+#define CHUNK 8
+
+    predicate_t pr_prop = PL_predicate("predicate_property", 2, NULL);
+    term_t      pl_args;
+    fid_t       frame;
+    qid_t       qid;
+
+    prolog_predicate_t *predicates;
+    int                 npredicate;
+
+    npredicate = 0;
+
+    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, CHUNK + 1)) == NULL)
+        goto fail;
+    
+    frame = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(2);
+
+    PL_unify_atom_chars(pl_args + 1, "undefined");
+    
+    qid = PL_open_query(NULL, QUERY_FLAGS, pr_prop, pl_args);
+    while (PL_next_solution(qid)) {
+        if (npredicate && ((npredicate & (CHUNK - 1)) == CHUNK - 1)) {
+#if 0
+            printf("npredicate = %d, reallocating to %d\n",
+                   npredicate, npredicate + CHUNK + 1);
+#endif
+            if (!REALLOC_ARR(predicates, npredicate+1, npredicate+CHUNK+1))
+                goto fail;
+        }
+
+        if (collect_undefined(pl_args, npredicate, predicates) != 0)
+            goto fail;
+        
+        npredicate++;
+    }
+
+    PL_close_query(qid);
     PL_discard_foreign_frame(frame);
 
     return predicates;
 
  fail:
+    PL_close_query(qid);
     PL_discard_foreign_frame(frame);
+    prolog_free_predicates(predicates);
+    
     return NULL;
+#undef CHUNK
+
+#else /* !1 */
+
+    predicate_t pr_prop = PL_predicate("predicate_property", 2, NULL);
+    term_t      pl_args, pl_list, pl_item;
+    fid_t       frame;
+    qid_t       qid;
+
+    prolog_predicate_t *predicates;
+    int                 npredicate;
+
+    predicates = NULL;
+    npredicate = 0;
+
+    frame = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(2);
+    pl_list = PL_new_term_ref(); PL_put_nil(pl_list);
+    pl_item = PL_new_term_ref();
+
+    PL_unify_atom_chars(pl_args + 1, "undefined");
+    
+    qid = PL_open_query(NULL, QUERY_FLAGS, pr_prop, pl_args);
+    while (PL_next_solution(qid)) {
+        char *p;
+
+        if (!PL_get_chars(pl_args, &p, CVT_WRITE))
+            printf("*** failed to print undefined predicate head...\n");
+        else
+            printf("*** undefined predicate %s\n", p);
+
+        PL_put_variable(pl_item);
+        PL_unify(pl_item, pl_args);
+
+        PL_cons_list(pl_list, pl_item, pl_list);
+        
+        if (!PL_get_chars(pl_list, &p, CVT_WRITE))
+            printf("*** failed to print list...\n");
+        else
+            printf("*** list %s\n", p);
+
+
+        printf("*** list: %d (%d)\n", prolog_list_length(pl_list), pl_list);
+        
+        npredicate++;
+    }
+
+    printf("*** npredicate: %d\n", npredicate);
+
+    printf("*** list: %d (%d)\n", prolog_list_length(pl_list), pl_list);
+
+    if ((npredicate = prolog_list_length(pl_list)) <= 0)
+        goto fail;
+
+    printf("*** found %d undefined predicates\n", npredicate);
+    
+    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
+        goto fail;
+
+    if (prolog_walk_list(pl_list, collect_undefined, predicates))
+        goto fail;
+    
+    PL_close_query(qid);
+    PL_discard_foreign_frame(frame);
+
+    return predicates;
+
+ fail:
+    PL_close_query(qid);
+    PL_discard_foreign_frame(frame);
+    prolog_free_predicates(predicates);
+    
+    return NULL;
+
+#endif /* !1 */
+
+#else /* !__OLD_EXPORT_MECHANISM__ */
+
+    predicate_t  pr_rules = PL_predicate(PRED_RULES, 2, NULL);
+    fid_t        frame;
+    term_t       pl_predlist = PL_new_term_refs(2);
+
+    prolog_predicate_t *predicates;
+    int                 npredicate, err;
+
+    predicates = NULL;
+
+    frame = PL_open_foreign_frame();
+
+    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_predlist))
+        goto fail;
+    
+    if ((npredicate = prolog_list_length(pl_predlist + 1)) <= 0) {
+        printf("*** got %d predicates...\n", npredicate);
+        goto fail;
+    }
+
+    printf("*** got %d predicates...\n", npredicate);
+
+    if ((predicates = ALLOC_ARRAY(prolog_predicate_t, npredicate + 1)) == NULL)
+        goto fail;
+    
+    if ((err=prolog_walk_list(pl_predlist + 1, collect_exported, predicates))){
+        printf("failed to collect predicates: %d (%s)\n", err, strerror(err));
+        goto fail;
+    }
+    
+    PL_discard_foreign_frame(frame);
+    
+    return predicates;
+
+ fail:
+    PL_discard_foreign_frame(frame);
+    prolog_free_predicates(predicates);
+    
+    return NULL;
+#endif
 }
 
 
@@ -293,10 +535,10 @@ prolog_free_predicates(prolog_predicate_t *predicates)
 
 
 /********************
- * collect_predicates
+ * collect_exported
  ********************/
 static int
-collect_predicates(term_t pl_descriptor, int i, void *data)
+collect_exported(term_t pl_descriptor, int i, void *data)
 {
     prolog_predicate_t *predicate = ((prolog_predicate_t *)data) + i;
     const char         *name;
@@ -328,7 +570,8 @@ collect_predicates(term_t pl_descriptor, int i, void *data)
             !PL_get_arg(2, pl_descriptor, pl_descr))
             return EINVAL;
     
-        PL_get_chars(pl_module, (char **)&name, CVT_ALL);
+        if (!PL_get_chars(pl_module, (char **)&name, CVT_ALL))
+            return EINVAL;
         
         if ((predicate->module = STRDUP(name)) == NULL)
             return ENOMEM;
@@ -351,14 +594,73 @@ collect_predicates(term_t pl_descriptor, int i, void *data)
         !PL_get_arg(2, pl_descriptor, pl_arity))
         return EINVAL;
     
-    PL_get_chars(pl_name, (char **)&name, CVT_ALL);
+    if (!PL_get_chars(pl_name, (char **)&name, CVT_ALL))
+        return EINVAL;
     PL_get_integer(pl_arity, &arity);
     
     pr_predicate = PL_predicate(name, arity, predicate->module);
     
-    predicate->name      = strdup(name);
+    predicate->name      = STRDUP(name);
     predicate->arity     = arity;
     predicate->predicate = pr_predicate;
+
+    if (predicate->name == NULL)
+        return ENOMEM;
+    
+    return 0;
+}
+
+
+/********************
+ * collect_undefined
+ ********************/
+static int
+collect_undefined(term_t pl_descriptor, int i, void *data)
+{
+    prolog_predicate_t *predicate = ((prolog_predicate_t *)data) + i;
+    const char         *name;
+    int                 arity;
+    predicate_t         pr_predicate;
+    atom_t              pred_name;
+    term_t              pl_module, pl_descr;
+
+    /*
+     * Notes:
+     *     Prolog represents the term foo:bar(_G1, _G2, ... _Gn) as the
+     *     compound term :(foo, bar(_G1, _G2, ..., _Gn)., ie. the functor
+     *     ':' with arity 2 and arguments 'foo' and bar(...).
+     */
+    
+    if (!PL_get_name_arity(pl_descriptor, &pred_name, &arity))
+        return EINVAL;
+    
+    name = PL_atom_chars(pred_name);
+    
+    if (name[0] == ':' && name[1] == '\0') {
+        pl_module = PL_new_term_refs(2);
+        pl_descr  = pl_module + 1;
+        if (!PL_get_arg(1, pl_descriptor, pl_module) ||
+            !PL_get_arg(2, pl_descriptor, pl_descr))
+            return EINVAL;
+    
+        if (!PL_get_chars(pl_module, (char **)&name, CVT_ALL))
+            return EINVAL;
+        
+        if ((predicate->module = STRDUP(name)) == NULL)
+            return ENOMEM;
+        
+        pl_descriptor = pl_descr;
+        if (!PL_get_name_arity(pl_descriptor, &pred_name, &arity))
+            return EINVAL;
+
+        name = PL_atom_chars(pred_name);
+    }
+
+    pr_predicate = PL_predicate(name, arity, predicate->module);
+    
+    predicate->name      = STRDUP(name);
+    predicate->arity     = arity;
+    predicate->predicate = 0;
 
     if (predicate->name == NULL)
         return ENOMEM;
@@ -423,10 +725,10 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     if (narg < p->arity - 1)
         return FALSE;
     else if (narg > p->arity - 1) {
-        fprintf(stderr, "WARNING: %s ignoring extra %d parameter%s to %s\n",
-                __FUNCTION__,
-                narg - p->arity - 1, narg - p->arity - 1 > 1 ? "s" : "",
-                p->name);
+        PROLOG_WARNING("%s: ignoring extra %d parameter%s to %s",
+                       __FUNCTION__,
+                       narg - p->arity - 1, narg - p->arity - 1 > 1 ? "s" : "",
+                       p->name);
     }
     
     frame = PL_open_foreign_frame();
@@ -441,7 +743,8 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         case 'i': PL_put_integer(pl_args + i, (int)args[a++]);       break;
         case 'd': PL_put_float(pl_args + i, *(double *)args[a++]);   break;
         default:
-            printf("invalid prolog argument type 0x%x", type);
+            PROLOG_ERROR("%s: invalid prolog argument type 0x%x",
+                         __FUNCTION__, type);
             success = FALSE;
             goto out;
         }
@@ -516,8 +819,8 @@ prolog_free_results(char ***results)
     case RESULT_OBJECTS:   prolog_free_objects(results);   break;
     case RESULT_EXCEPTION: prolog_free_exception(results); break;
     default:
-        fprintf(stderr, "WARNING: %s called with invalid result type %d\n",
-                __FUNCTION__, tag);
+        PROLOG_WARNING("%s: called with invalid result type %d",
+                       __FUNCTION__, tag);
     }
 }
 
@@ -538,8 +841,8 @@ prolog_dump_results(char ***results)
     case RESULT_OBJECTS:   prolog_dump_objects(results);   break;
     case RESULT_EXCEPTION: prolog_dump_exception(results); break;
     default:
-        fprintf(stderr, "WARNING: %s called with invalid result type %d\n",
-                __FUNCTION__, tag);
+        PROLOG_WARNING("%s: called with invalid result type %d",
+                       __FUNCTION__, tag);
     }
 }
 
@@ -556,8 +859,8 @@ prolog_free_actions(char ***actions)
         return;
 
     if (actions[-1] != (char **)RESULT_ACTIONS) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)actions[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)actions[-1]);
         return;
     }
     
@@ -582,8 +885,8 @@ prolog_dump_actions(char ***actions)
         return;
 
     if (actions[-1] != (char **)RESULT_ACTIONS) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)actions[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)actions[-1]);
         return;
     }
     
@@ -625,8 +928,8 @@ prolog_flatten_actions(char ***actions)
         return NULL;
     
     if (actions[-1] != (char **)RESULT_ACTIONS) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)actions[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)actions[-1]);
         return NULL;
     }
     
@@ -655,6 +958,7 @@ prolog_flatten_actions(char ***actions)
     *p   = '\0';
     
     return flattened;
+#undef CHUNK
 }
 
 
@@ -670,8 +974,8 @@ prolog_free_objects(char ***objects)
         return;
 
     if (objects[-1] != (char **)RESULT_OBJECTS) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)objects[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)objects[-1]);
         return;
     }
     
@@ -705,8 +1009,8 @@ prolog_dump_objects(char ***objects)
         return;
 
     if (objects[-1] != (char **)RESULT_OBJECTS) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)objects[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)objects[-1]);
         return;
     }
 
@@ -750,8 +1054,8 @@ prolog_dump_exception(char ***exception)
         return;
     
     if (exception[-1] != (char **)RESULT_EXCEPTION) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)exception[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)exception[-1]);
         return;
     }
 
@@ -769,8 +1073,8 @@ prolog_free_exception(char ***exception)
         return;
 
     if (exception[-1] != (char **)RESULT_EXCEPTION) {
-        fprintf(stderr, "WARNING: %s called for invalid list (tag: 0x%x)",
-                __FUNCTION__, (int)exception[-1]);
+        PROLOG_WARNING("%s: called for invalid list (tag: 0x%x)",
+                       __FUNCTION__, (int)exception[-1]);
         return;
     }
 
@@ -844,6 +1148,19 @@ prolog_list_new(char **items, int n, term_t result)
     
     return list;
 }
+
+
+/********************
+ * prolog_list_prepend
+ ********************/
+term_t
+prolog_list_prepend(term_t list, term_t item)
+{
+    PL_cons_list(list, item, list);
+    
+    return list;
+}
+
 
 
 /*************************
@@ -989,7 +1306,8 @@ collect_result(qid_t qid, term_t pl_retval, void *retval)
         
     invalid:
     default:
-        printf("cannot handle term of type %d\n", PL_term_type(pl_retval));
+        PROLOG_WARNING("%s: cannot handle term of type %d", __FUNCTION__,
+                       PL_term_type(pl_retval));
         return EINVAL;
     }
 }
@@ -1104,8 +1422,8 @@ collect_object(term_t item, int i, void *data)
             type  = (char *)'d';
             break;
         default:
-            printf("*** invalid prolog type (%d) for object field\n",
-                   PL_term_type(pl_value));
+            PROLOG_ERROR("%s: invalid prolog type (%d) for object field",
+                         __FUNCTION__, PL_term_type(pl_value));
             return EINVAL;
         }
         
@@ -1205,10 +1523,11 @@ parse_exception(term_t pl_exception)
         APPEND("%s", PL_atom_chars(pl_type));
 
         if (arity != 2)
-            FAIL(" (unknown details");
+            FAIL(" (unknown details)");
         
         PL_get_arg(1, pl_formal, pl_kind);
-        PL_get_chars(pl_kind, &s, CVT_WRITE | BUF_DISCARDABLE);
+        if (!PL_get_chars(pl_kind, &s, CVT_WRITE | BUF_DISCARDABLE))
+            FAIL(" (details in unknown format)");
         APPEND(": %s", s);
         
         PL_get_arg(2, pl_formal, pl_what);

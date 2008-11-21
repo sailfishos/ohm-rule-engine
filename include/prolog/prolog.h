@@ -80,6 +80,7 @@ int  prolog_load_file     (char *path);
 prolog_predicate_t *prolog_predicates(char *query);
 int                 prolog_predicate (prolog_predicate_t *p, char *name,
                                       int arity);
+prolog_predicate_t *prolog_undefined (void);
 
 int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
 int                 prolog_acall     (prolog_predicate_t *p, void *retval,

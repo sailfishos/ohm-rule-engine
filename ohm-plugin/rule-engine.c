@@ -22,10 +22,10 @@
 #define DEFAULT_STACK  16                            /* 16k stacks */
 
 #define STACK_LIMIT    16,16,16,16                   /* 16k stacks */
-#define NO_PREDICATE   (-1)                          /* unknown predicate */
+#define NO_RULE        (-1)                          /* unknown rule */
 
-static prolog_predicate_t *discover_predicates(void);
-static void                free_predicates(void);
+static int    discover_predicates(void);
+static void   free_predicates(void);
 
 static char **get_extensions(const char *param);
 static char **get_rules     (const char *param);
@@ -37,11 +37,10 @@ static int                 npredicate;
 static int                 busy;
 
 /* debug flags */
-static int DBG_PRED, DBG_RULE;
+static int DBG_RULE;
 
 OHM_DEBUG_PLUGIN(rule_engine,
-    OHM_DEBUG_FLAG("predicates", "predicate handling", &DBG_PRED),
-    OHM_DEBUG_FLAG("rules"     , "rule processing"   , &DBG_RULE));
+     OHM_DEBUG_FLAG("rules", "rule processing", &DBG_RULE));
 
 
 /*****************************************************************************
@@ -109,18 +108,18 @@ OHM_EXPORTABLE(int, find_rule, (char *name, int arity))
     prolog_predicate_t *p;
     int                 i;
 
-    if (discover_predicates() == NULL)
-        return NO_PREDICATE;
+    if (discover_predicates() != 0)
+        return NO_RULE;
     
     for (i = 0, p = predicates; p->name != NULL; i++, p++)
         if ((arity < 0 || p->arity == arity) && !strcmp(p->name, name)) {
-            OHM_DEBUG(DBG_PRED, "predicate %s/%d: rule #%d", name, arity, i);
+            OHM_DEBUG(DBG_RULE, "rule %s/%d: #%d", name, arity, i);
             return i;
         }
+    
+    OHM_DEBUG(DBG_RULE, "could not find rule %s/%d", name, arity);
 
-    OHM_DEBUG(DBG_PRED, "could not find predicate %s/%d", name, arity);
-
-    return NO_PREDICATE;
+    return NO_RULE;
 }
 
 
@@ -130,13 +129,13 @@ OHM_EXPORTABLE(int, find_rule, (char *name, int arity))
 OHM_EXPORTABLE(int, eval_rule, (int rule, void *retval, void **args, int narg))
 {
     if (rule < 0 || rule >= npredicate) {
-        OHM_DEBUG(DBG_RULE, "non-existing rule #%d requested", rule);
+        OHM_ERROR("rule-engine: cannot evaluate non-existing rule #%d", rule);
         return ENOENT;
     }
     
     OHM_DEBUG(DBG_RULE, "invoking rule #%d (%s/%d)", rule,
               predicates[rule].name, predicates[rule].arity);
-
+    
     return prolog_acall(predicates + rule, retval, args, narg);
 }
 
@@ -193,7 +192,7 @@ setup(char **extensions, char **files, int stack)
     }
 
     if (prolog_init(PLUGIN_NAME, stack,stack,stack,stack, boot) != 0) {
-        OHM_WARNING("%s: failed to initialize prolog library", __FUNCTION__);
+        OHM_ERROR("%s: failed to initialize prolog library", __FUNCTION__);
         exit(1);
     }
 
@@ -202,22 +201,20 @@ setup(char **extensions, char **files, int stack)
     for (p = extensions[i=0]; p != NULL; p = extensions[++i]) {
         OHM_INFO("rule-engine: loading extension %s...", p);
         if (!prolog_load_extension(p)) {
-            OHM_WARNING("%s: failed to load extension \"%s\"", __FUNCTION__, p);
-            return EINVAL;
+            OHM_ERROR("%s: failed to load extension \"%s\"", __FUNCTION__, p);
+            exit(1);
         }
     }
 
     for (p = files[i=0]; p != NULL; p = files[++i]) {
         OHM_INFO("rule-engine: loading rule file %s...", p);
         if (!prolog_load_file(p)) {
-            OHM_WARNING("%s: failed to load file \"%s\"", __FUNCTION__, p);
-            return EINVAL;
+            OHM_ERROR("%s: failed to load file \"%s\"", __FUNCTION__, p);
+            exit(1);
         }
     }
 
-    discover_predicates();
-    
-    return 0;
+    return discover_predicates();
 }
 
 
@@ -228,31 +225,62 @@ setup(char **extensions, char **files, int stack)
 /********************
  * discover_predicates
  ********************/
-static prolog_predicate_t *
+static int
 discover_predicates(void)
 {
-    prolog_predicate_t *p;
+#define IS_UNDEFINED(p) ({                                              \
+            prolog_predicate_t *u;                                      \
+            int                 found;                                  \
+                                                                        \
+            found = FALSE;                                              \
+            if (undefined != NULL)                                      \
+                for (u = undefined; u->name != NULL; u++)               \
+                    if ((p)->arity == u->arity &&                       \
+                        !strcmp((p)->name, u->name) &&                  \
+                        !strcmp((p)->module, u->module)) {              \
+                        found = TRUE;                                   \
+                        break;                                          \
+                    }                                                   \
+            found; })
+    
+    prolog_predicate_t *undefined, *p;
+    int                 err;
     
     if (predicates != NULL)
-        return predicates;
+        return 0;
 
     if (!busy) {                 /* avoid doing anything if we're not set up */
-        OHM_ERROR("rule-engine: not set up, cannot discover predicates");
-        return NULL;
+        OHM_ERROR("rule-engine: not set up, cannot discover rules");
+        return EAGAIN;
     }
     
     if ((predicates = prolog_predicates(NULL)) == NULL) {
-        OHM_WARNING("rule-engine: no exported predicates found");
-        return NULL;
+        OHM_ERROR("rule-engine: no exported rules found");
+        return ENOENT;
     }
-    
+
+    undefined = prolog_undefined();
+
     npredicate = 0;
+    err        = 0;
     for (p = predicates; p->name != NULL; p++) {
-        OHM_INFO("rule-engine: discovered predicate %s/%d", p->name, p->arity);
+        if (IS_UNDEFINED(p)) {
+            OHM_ERROR("rule-engine: undefined rule %s:%s/%d", p->module,
+                      p->name, p->arity);
+            err = ENOENT;
+        }
+        else
+            OHM_INFO("rule-engine: exported rule %s:%s/%d", p->module, p->name,p->arity);
+        
         npredicate++;
     }
     
-    return predicates;
+    if (err != 0)
+        exit(err);
+    
+    prolog_free_predicates(undefined);
+    
+    return 0;
 }
 
 
@@ -268,6 +296,12 @@ free_predicates(void)
         npredicate = 0;
     }
 }
+
+
+/********************
+ * find_predicate
+ ********************/
+
 
 
 /********************

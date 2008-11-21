@@ -48,8 +48,8 @@ get_field_names(context_t *ctx, term_t pl_fields)
 #define MAX_LENGTH 64                           /* max length of a field name */
 
     term_t  pl_list, pl_head;
-    int     i, n, left, dummy;
-    size_t  size;
+    int     i, n, left;
+    size_t  size, dummy;
     char   *p, *field;
     
 
@@ -256,6 +256,8 @@ pl_fact_exists(term_t pl_name,
         PL_fail;
     }
 
+
+    /* XXX TODO: shouldn't we discard the frame here instead of closing them */
 
     frame = PL_open_foreign_frame();
     while (ctx->facts != NULL) {
