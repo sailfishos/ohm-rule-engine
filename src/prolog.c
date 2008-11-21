@@ -280,11 +280,11 @@ pl_loading(term_t noargs, int arity, void *context)
     }
 
     if (IS_LOADING()) {
-        printf("*** yes, libprolog is loading (%d)...\n", libprolog_loading);
+        /* printf("*** libprolog is loading (%d)...\n", libprolog_loading); */
         PL_succeed;
     }
     else {
-        printf("*** no, libprolog is NOT loading\n");
+        /* printf("*** libprolog is NOT loading\n"); */
         PL_fail;
     }
 }
