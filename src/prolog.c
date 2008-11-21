@@ -27,6 +27,12 @@
         fprintf(stdout, "[WARNING] "fmt"\n", ## args);  \
     } while (0)
 
+#define MARK_ERROR()    do { libprolog_errors++;   } while (0)
+#define CLEAR_ERRORS()  do { libprolog_errors = 0; } while (0)
+#define HAS_ERRORS()    (libprolog_errors > 0)
+#define START_LOADING() do { libprolog_loading++; } while (0)
+#define DONE_LOADING()  do { libprolog_loading--; } while (0)
+#define IS_LOADING()    (libprolog_loading > 0)
 
 #define PRED_EXPORTED "exported"
 #define PRED_RULES    "rules"
@@ -60,6 +66,9 @@ static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
 static int   collect_exception (qid_t qid, void *retval);
 
+static int   register_predicates(void);
+static int   libprolog_loading;
+static int   libprolog_errors;
 
 static char libpl[PATH_MAX];
 static char lstack[16], gstack[16], tstack[16], astack[16];
@@ -155,6 +164,12 @@ prolog_init(char *argv0,
     }
 #endif
 
+    libprolog_loading = 0;
+    CLEAR_ERRORS();
+
+    if ((status = register_predicates()) != 0)
+        return status;
+    
     if ((status = !PL_initialise(argc + 1, argv)))
         PL_cleanup(0);
     
@@ -213,6 +228,9 @@ load_file(char *path, int foreign)
     term_t       pl_path;
     int          success;
 
+    CLEAR_ERRORS();
+    START_LOADING();
+    
     /*
      * Notes:
      *     We do our best to detect errors while loading files. However
@@ -241,7 +259,88 @@ load_file(char *path, int foreign)
 
     PL_discard_foreign_frame(frame);
 
-    return success;
+    DONE_LOADING();
+    
+    if (HAS_ERRORS())
+        return FALSE;
+    else
+        return success;
+}
+
+
+/********************
+ * pl_loading
+ ********************/
+static foreign_t
+pl_loading(term_t noargs, int arity, void *context)
+{
+    if (libprolog_loading < 0) {
+        PROLOG_ERROR("MAJOR BUG: libprolog_loading < 0 (%d)...",
+                     libprolog_loading);
+    }
+
+    if (IS_LOADING()) {
+        printf("*** yes, libprolog is loading (%d)...\n", libprolog_loading);
+        PL_succeed;
+    }
+    else {
+        printf("*** no, libprolog is NOT loading\n");
+        PL_fail;
+    }
+}
+
+
+/********************
+ * pl_mark_error
+ ********************/
+static foreign_t
+pl_mark_error(term_t noargs, int arity, void *context)
+{
+    MARK_ERROR();
+    PL_succeed;
+}
+
+
+/********************
+ * pl_clear_errors
+ ********************/
+static foreign_t
+pl_clear_errors(term_t noargs, int arity, void *context)
+{
+    CLEAR_ERRORS();
+    PL_succeed;
+}
+
+
+/********************
+ * pl_has_errors
+ ********************/
+static foreign_t
+pl_has_errors(term_t noargs, int arity, void *context)
+{
+    if (HAS_ERRORS())
+        PL_succeed;
+    else
+        PL_fail;
+}
+
+
+/********************
+ * register_predicates
+ ********************/
+static int
+register_predicates(void)
+{
+    static PL_extension predicates[] = {
+        { "loading"     , 0, pl_loading     , PL_FA_VARARGS, },
+        { "mark_error"  , 0, pl_mark_error  , PL_FA_VARARGS, },
+        { "clear_errors", 0, pl_clear_errors, PL_FA_VARARGS, },
+        { "has_errors"  , 0, pl_has_errors  , PL_FA_VARARGS, },
+        { NULL, 0, NULL, 0 },
+    };
+
+    PL_register_extensions_in_module("libprolog", predicates);
+    return 0;
 }
 
 
