@@ -1558,8 +1558,6 @@ collect_exception(qid_t qid, void *retval)
     const char   *name;
     char         *error;
 
-    *objects = NULL;
-        
     if ((pl_error = PL_exception(qid)) == 0) {
         *(char **)retval = NULL;
         return 0;
