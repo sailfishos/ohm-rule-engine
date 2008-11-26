@@ -61,14 +61,6 @@ enum {
 };
 
 
-enum {
-    PRED_TRACE_NONE       = 0,
-    PRED_TRACE_SHALLOW,        /* normal trace */
-    PRED_TRACE_TRANSITIVE,     /* trace predicate and all its clauses */
-    PRED_TRACE_SUPPRESS,       /* override transitive traces */
-};
-
-
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   collect_exported  (term_t pl_descriptor, int i, void *data);
@@ -78,13 +70,6 @@ static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
 static int   collect_exception (qid_t qid, void *retval);
 
-static int   register_predicates (void);
-static int   predicate_trace_init(void);
-
-static int   predicate_trace_init(void);
-static void  predicate_trace_exit(void);
-
-static int   prolog_tracing(int state);
 
 
 static char libpl[PATH_MAX];
@@ -117,10 +102,66 @@ static int libprolog_errors;
  * predicate tracing
  */
 
-static int         trace_enabled;
-static int         trace_all;
-static int         trace_transitive;
-static GHashTable *trace_flags;
+#define COMMAND_ENABLE     "enable"
+#define COMMAND_DISABLE    "disable"
+#define COMMAND_INDENT     "indent"
+#define COMMAND_DEFAULTS   "defaults"
+#define COMMAND_RESET      "reset"
+#define COMMAND_CLEAR      "clear"
+#define COMMAND_SHOW       "show"
+#define COMMAND_ON         "on"
+#define COMMAND_OFF        "off"
+#define COMMAND_TRANSITIVE "transitive"
+#define COMMAND_SUPPRESS   "suppress"
+#define COMMAND_DETAILED   "detailed"
+#define COMMAND_SHORT      "short"
+#define PORT_CALL          "call"
+#define PORT_REDO          "redo"
+#define PORT_PROVEN        "proven"
+#define PORT_FAILED        "failed"
+#define PORT_EXIT          "exit"
+#define PORT_FAIL          "fail"
+#define PORT_ALL           "all"
+#define WILDCARD_ANY       "*"
+
+enum {
+    PRED_TRACE_NONE       = 0x00,       /* not traced */
+    PRED_TRACE_SHALLOW    = 0x01,       /* trace predicate */
+    PRED_TRACE_TRANSITIVE = 0x02,       /* trace predicate and its clauses */
+    PRED_TRACE_SUPPRESS,                /* always suppress this predicate */
+};
+
+enum {
+    PRED_PORT_SUPPRESS  = 0x0,          /* suppress this port altogether */
+    PRED_PORT_SHORT     = 0x1,          /* short summary at this port */
+    PRED_PORT_DETAILED  = 0x2,          /* detailed information at this port */
+};
+
+typedef struct {
+    int trace;                          /* predicate trace flags */
+    int call;                           /* call port flags */
+    int redo;                           /* redo port flags */
+    int proven;                         /* proven (exit) port flags */
+    int failed;                         /* failed (fail) port flags */
+} pred_trace_t;
+
+static int   register_predicates (void);
+static int   predicate_trace_init(void);
+
+static int   predicate_trace_init(void);
+static void  predicate_trace_exit(void);
+static void  predicate_trace_free(gpointer data);
+static void  predicate_trace_clear(char *pred);
+static pred_trace_t *predicate_trace_get(char *pred);
+static int   prolog_tracing(int state);
+
+
+static int         trace_enabled;       /* global trace enable/disable flag */
+static int         trace_all;           /* trace all predicates */
+static int         trace_transitive;    /* transitive tracing in effect */
+static int         trace_indent;        /* indentation level per depth */
+static GHashTable *trace_flags;         /* per-predicate trace flags */
+
 
 /*****************************************************************************
  *                      *** initialization & cleanup ***                     *
@@ -705,8 +746,10 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         }
     }
 
-    if (trace_enabled)
+    if (trace_enabled) {
         prolog_tracing(TRUE);
+        trace_transitive = 0;
+    }
     /*                            NORMAL_QUERY_FLAGS */
     qid     = PL_open_query(NULL, TRACE_QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
@@ -715,8 +758,12 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     PL_close_query(qid);
     
  out:
-    if (trace_enabled)
+    if (trace_enabled) {
         prolog_tracing(FALSE);
+        if (trace_transitive != 0)
+            printf("\n*** transitive = %d upon return\n", trace_transitive);
+        trace_transitive = 0;
+    }
     PL_discard_foreign_frame(frame);
     
     return success;
@@ -1781,10 +1828,12 @@ prolog_tracing(int state)
 static int
 predicate_trace_init(void)
 {
-    trace_enabled = FALSE;
-    trace_all     = FALSE;
-
-    trace_flags = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
+    trace_enabled    = FALSE;
+    trace_all        = FALSE;
+    trace_transitive = 0;
+    trace_indent     = 2;
+    trace_flags = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                        free, predicate_trace_free);
 
     return trace_flags != NULL ? 0 : ENOMEM;
 }
@@ -1800,43 +1849,171 @@ predicate_trace_exit(void)
         g_hash_table_destroy(trace_flags);
         trace_flags = NULL;
     }
-    trace_enabled = FALSE;
-    trace_all     = FALSE;
+    trace_enabled    = FALSE;
+    trace_all        = FALSE;
+    trace_transitive = 0;
+}
+
+
+/********************
+ * predicate_trace_free
+ ********************/
+static void
+predicate_trace_free(gpointer data)
+{
+    pred_trace_t *pt = (pred_trace_t *)data;
+
+    if (pt != NULL)
+        free(pt);
 }
 
 
 /********************
  * predicate_trace_reset
  ********************/
-void
+static void
 predicate_trace_reset(void)
 {
     if (trace_flags != NULL)
         g_hash_table_remove_all(trace_flags);
+    trace_enabled    = FALSE;
+    trace_all        = FALSE;
+    trace_transitive = 0;
 }
 
 
 /********************
  * predicate_trace_set
  ********************/
-void
-predicate_trace_set(char *pred, int flags)
+static void
+predicate_trace_set(char *pred, char *cmd)
 {
-    if (trace_flags != NULL && pred != NULL)
-        g_hash_table_replace(trace_flags, pred, (gpointer)flags);
+    pred_trace_t *pt;
+    char         *port;
+    int           type;
+
+    if (trace_flags == NULL || pred == NULL)
+        return;
+    
+    if (!strcmp(pred, WILDCARD_ANY)) {
+        if (!strcmp(cmd, COMMAND_OFF) || !strcmp(cmd, COMMAND_SUPPRESS))
+            trace_all = FALSE;
+        else if (!strcmp(cmd, COMMAND_ON) || !strcmp(cmd, COMMAND_TRANSITIVE))
+            trace_all = TRUE;
+        else {
+            printf("Invalid command \"%s %s\".\n", pred, cmd);
+            return;
+        }
+    }
+    
+    if (!strcmp(cmd, COMMAND_CLEAR)) {
+        predicate_trace_clear(pred);
+        return;
+    }
+    
+    if ((pt = predicate_trace_get(pred)) == NULL) {
+        if (ALLOC_OBJ(pt) == NULL) {
+            printf("Failed to allocate memory for predicate tracing.\n");
+            return;
+        }
+        pt->call   = PRED_PORT_DETAILED;
+        pt->redo   = PRED_PORT_DETAILED;
+        pt->proven = PRED_PORT_SHORT;
+        pt->failed = PRED_PORT_SHORT;
+        g_hash_table_insert(trace_flags, strdup(pred), pt);
+    }
+
+    if (!strcmp(cmd, COMMAND_OFF)) {
+        pt->trace = PRED_TRACE_NONE;
+        return;
+    }
+    if (!strcmp(cmd, COMMAND_SUPPRESS)) {
+        pt->trace = PRED_TRACE_SUPPRESS;
+        return;
+    }
+    if (!strcmp(cmd, COMMAND_ON)) {
+        pt->trace = PRED_TRACE_SHALLOW;
+        return;
+    }
+    if (!strcmp(cmd, COMMAND_TRANSITIVE)) {
+        pt->trace = PRED_TRACE_TRANSITIVE;
+        return;
+    }
+    if (!strcmp(cmd, COMMAND_DEFAULTS)) {
+        pt->trace = PRED_TRACE_SHALLOW;
+        pt->call   = PRED_PORT_DETAILED;
+        pt->redo   = PRED_PORT_DETAILED;
+        pt->proven = PRED_PORT_SHORT;
+        pt->failed = PRED_PORT_SHORT;
+        return;
+    }
+    
+    port = cmd;
+    if ((cmd = strchr(port, ' ')) == NULL) {
+        printf("Invalid command \"%s\".\n", port);
+        return;
+    }
+    *cmd++ = '\0';
+    
+    if (!strcmp(cmd, COMMAND_DETAILED))
+        type = PRED_PORT_DETAILED;
+    else if (!strcmp(cmd, COMMAND_SHORT))
+        type = PRED_PORT_SHORT;
+    else if (!strcmp(cmd, COMMAND_SUPPRESS))
+        type = PRED_PORT_SUPPRESS;
+    else {
+        printf("Invalid command \"%s %s\".\n", port, cmd);
+        return;
+    }
+
+    if (!strcmp(port, PORT_CALL)) {
+        pt->call = type;
+        return;
+    }
+    if (!strcmp(port, PORT_REDO)) {
+        pt->redo = type;
+        return;
+    }
+    if (!strcmp(port, PORT_PROVEN) || !strcmp(port, PORT_EXIT)) {
+        pt->proven = type;
+        return;
+    }
+    if (!strcmp(port, PORT_FAILED) || !strcmp(port, PORT_FAIL)) {
+        pt->failed = type;
+        return;
+    }
+    if (!strcmp(port, PORT_ALL)) {
+        pt->call = pt->redo = pt->proven = pt->failed = type;
+        return;
+    }
+    else {
+        printf("Invalid command \"%s %s\".\n", port, cmd);
+        return;
+    }
 }
 
 
 /********************
  * predicate_trace_get
  ********************/
-int
+static pred_trace_t *
 predicate_trace_get(char *pred)
 {
     if (trace_flags != NULL)
-        return (int)g_hash_table_lookup(trace_flags, pred);
+        return (pred_trace_t *)g_hash_table_lookup(trace_flags, pred);
     else
-        return 0;
+        return NULL;
+}
+
+
+/********************
+ * predicate_trace_clear
+ ********************/
+static void
+predicate_trace_clear(char *pred)
+{
+    if (trace_flags != NULL)
+        g_hash_table_remove(trace_flags, pred);
 }
 
 
@@ -1846,18 +2023,32 @@ predicate_trace_get(char *pred)
 static void
 show_flags_for(gpointer key, gpointer value, gpointer data)
 {
-    char *predicate = (char *)key;
-    int   flags     = (int)value;
+    char         *predicate = (char *)key;
+    pred_trace_t *pt        = (pred_trace_t *)value;
 
     printf("  %s: ", predicate);
-    switch (flags) {
-    case PRED_TRACE_NONE:       printf("off\n");                 break;
-    case PRED_TRACE_SHALLOW:    printf("on (non-transitive)\n"); break;
-    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n");     break;
-    case PRED_TRACE_SUPPRESS:   printf("suppressed\n");          break;
-    default:                    printf("unknown (%d)\n", flags); break;
+    printf("    tracing: ");
+    switch (pt->trace) {
+    case PRED_TRACE_NONE:       printf("off\n");                     break;
+    case PRED_TRACE_SHALLOW:    printf("on (non-transitive)\n");     break;
+    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n");         break;
+    case PRED_TRACE_SUPPRESS:   printf("suppressed\n");              break;
+    default:                    printf("unknown (%d)\n", pt->trace); break;
     }
 
+    printf("    call port: %s\n",
+           pt->call == PRED_PORT_SUPPRESS ? "suppress" :
+           (pt->call == PRED_PORT_SHORT ? "short" : "detailed"));
+    printf("    redo port: %s\n",
+           pt->redo == PRED_PORT_SUPPRESS ? "suppress" :
+           (pt->redo == PRED_PORT_SHORT ? "short" : "detailed"));
+    printf("    proven port: %s\n",
+           pt->proven == PRED_PORT_SUPPRESS ? "suppress" :
+           (pt->proven == PRED_PORT_SHORT ? "short" : "detailed"));
+    printf("    failed port: %s\n",
+           pt->failed == PRED_PORT_SUPPRESS ? "suppress" :
+           (pt->failed == PRED_PORT_SHORT ? "short" : "detailed"));
+    
     (void)data;
 }
 
@@ -1882,18 +2073,9 @@ int
 prolog_trace_set(char *commands)
 {
 #define MAX_SIZE 1024
-#define COMMAND_ENABLE     "enable"
-#define COMMAND_DISABLE    "disable"
-#define COMMAND_RESET      "reset"
-#define COMMAND_SHOW       "show"
-#define COMMAND_ON         "on"
-#define COMMAND_OFF        "off"
-#define COMMAND_TRANSITIVE "transitive"
-#define COMMAND_SUPPRESS   "suppress"
-#define PREDICATE_ANY      "*"
 
     char command[MAX_SIZE + 1], *p, *q;
-    int  l;
+    int  l, indent;
 
     p = commands;
     while (p && *p) {
@@ -1919,21 +2101,31 @@ prolog_trace_set(char *commands)
         }
         else if (!strcmp(command, COMMAND_RESET)) {
             predicate_trace_reset();
-            trace_enabled = FALSE;
             printf("rule/predicate tracing reset\n");
         }
         else if (!strcmp(command, COMMAND_SHOW)) {
             prolog_trace_show();
         }
+        else if (!strncmp(command, COMMAND_INDENT, sizeof(COMMAND_INDENT)-1)) {
+            indent = strtoul(command + sizeof(COMMAND_INDENT) - 1, NULL, 10);
+            trace_indent = (indent >= 0 && indent < 8) ? indent : 0;
+        }
         else {
-            char *predicate, *action;
-            int   flags;
-
+            char *predicate, *actions, *a, *next;
+            
             predicate = command;
-            if ((action = strchr(predicate, ' ')) == NULL)
+            if ((actions = strchr(predicate, ' ')) == NULL)
                 return EINVAL;
-            *action++ = '\0';
+            *actions++ = '\0';
 
+            for (a = actions, next = strchr(a, ','); a; a = next) {
+                if (next != NULL)
+                    *next++ = '\0';
+                printf("action %s for predicate %s\n", a, predicate);
+                predicate_trace_set(predicate, a);
+            }
+            
+#if 0
             if (!strcmp(action, COMMAND_ON))
                 flags = PRED_TRACE_SHALLOW;
             else if (!strcmp(action, COMMAND_OFF))
@@ -1946,7 +2138,7 @@ prolog_trace_set(char *commands)
                 printf("unknown rule trace action \"%s\"\n", action);
                 return EINVAL;
             }
-            if (!strcmp(predicate, PREDICATE_ANY)) {
+            if (!strcmp(predicate, WILDCARD_ANY)) {
                 if (flags == PRED_TRACE_NONE || flags == PRED_TRACE_SUPPRESS) {
                     trace_all = FALSE;
                     printf("global predicate tracing turned off\n");
@@ -1960,6 +2152,7 @@ prolog_trace_set(char *commands)
                 predicate_trace_set(strdup(predicate), flags);
                 printf("predicate trace for %s set to %s\n", predicate, action);
             }
+#endif
         }
     }
 
@@ -1976,6 +2169,7 @@ prolog_trace_show(void)
     printf("Rule/predicate trace settings:\n");
     printf("  tracing currently %s\n", trace_enabled ? "enabled" : "disabled");
     printf("  tracing of all predicates %s\n", trace_all ? "on" : "off");
+    printf("  trace indentation %d / level\n", trace_indent);
     predicate_trace_show();
 }
 
@@ -1984,25 +2178,73 @@ prolog_trace_show(void)
  * pl_trace_pred
  ********************/
 static foreign_t
-pl_trace_pred(term_t pl_pred, int arity, void *context)
+pl_trace_pred(term_t pl_args, int arity, void *context)
 {
-    char *pred;
-    int   flags;
+    static atom_t  call = 0, redo = 0, proven = 0, failed = 0;
+    atom_t         pl_port;
+    char          *pred, *port, *format;
+    pred_trace_t  *pt;
+    int            flags, type;
 
-    if (arity != 1 || !PL_get_chars(pl_pred, &pred, CVT_WRITE|BUF_DISCARDABLE))
+
+    if (arity != 1 && arity != 3)
         PL_fail;
-
-    flags = predicate_trace_get(pred);
     
+    if (!PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
+        PL_fail;
+    
+    pt = predicate_trace_get(pred);
+
+    /* no entry and no globl or transitive tracing on, reject */
+    if (pt == NULL && !trace_all && trace_transitive <= 0)
+        PL_fail;
+    
+    flags = pt ? pt->trace : PRED_TRACE_NONE;
+
+    /* explicit suppress, reject */
     if (flags == PRED_TRACE_SUPPRESS)
         PL_fail;
     
-    if (flags == PRED_TRACE_SHALLOW || flags == PRED_TRACE_TRANSITIVE)
-        PL_succeed;
-    
-    if (trace_all || trace_transitive > 0)
-        PL_succeed;
+    /* explicit tracing on or global tracing on or transitive tracing on */
+    if (flags == PRED_TRACE_SHALLOW || flags == PRED_TRACE_TRANSITIVE ||
+        (flags == PRED_TRACE_NONE && (trace_all || trace_transitive > 0))) {
+        if (arity == 1)
+            PL_succeed;
 
+        if (!PL_is_atom(pl_args + 1))
+            PL_fail;
+        
+        PL_get_atom(pl_args + 1, &pl_port);
+        
+#define PT_TYPE(pt, port, dflt) type = (pt) ? (pt)->port : PRED_PORT_##dflt
+        if      (pl_port == call)   PT_TYPE(pt, call, DETAILED);
+        else if (pl_port == redo)   PT_TYPE(pt, redo, DETAILED);
+        else if (pl_port == proven) PT_TYPE(pt, proven, SHORT);
+        else if (pl_port == failed) PT_TYPE(pt, failed, SHORT);
+        else if (!PL_get_atom_chars(pl_args + 1, &port))
+            PL_fail;
+        else if (!strcmp(port, "call"))   PT_TYPE(pt, call, DETAILED);
+        else if (!strcmp(port, "redo"))   PT_TYPE(pt, redo, DETAILED);
+        else if (!strcmp(port, "proven")) PT_TYPE(pt, proven, SHORT);
+        else if (!strcmp(port, "failed")) PT_TYPE(pt, failed, SHORT);
+        else
+            PL_fail;
+#undef PT_TYPE
+        
+        switch (type) {
+        case PRED_PORT_SUPPRESS: PL_fail;
+        case PRED_PORT_DETAILED: format = COMMAND_DETAILED; break;
+        case PRED_PORT_SHORT:    format = COMMAND_SHORT;    break;
+        default:                 format = COMMAND_SHORT;    break;
+        }
+
+
+        if (PL_unify_atom(pl_args + 2, PL_new_atom(format)))
+            PL_succeed;
+        else
+            PL_fail;
+    }
+    
     PL_fail;
 
     (void)context;
@@ -2015,34 +2257,62 @@ pl_trace_pred(term_t pl_pred, int arity, void *context)
 static foreign_t
 pl_trace_event(term_t pl_args, int arity, void *context)
 {
-    char   *pred, *event;
-    int     flags;
+    static atom_t  call = 0, redo = 0, proven = 0, failed = 0;
+    atom_t         pl_event;
+    char          *pred, *event = NULL;
+    pred_trace_t  *pt;
 
+    
     if (arity < 2 || !PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
         PL_succeed;
 
-    flags = predicate_trace_get(pred);
+    pt = predicate_trace_get(pred);
 
-    if (flags != PRED_TRACE_TRANSITIVE)
+    if (pt == NULL || pt->trace != PRED_TRACE_TRANSITIVE)
         PL_succeed;
 
-    if (!PL_get_atom_chars(pl_args + 1, &event))
+    if (!PL_is_atom(pl_args + 1))
         PL_succeed;
 
-    if (!strcmp(event, "call")) {
+    PL_get_atom(pl_args + 1, &pl_event);
+
+    if (pl_event == call || pl_event == redo) {
+        printf("\n *** event: %s (%d)\n", pl_event == call ? "call" : "redo",
+               trace_transitive);
         trace_transitive++;
-        printf("event: %s ++ (%d)\n", event, trace_transitive);
     }
-    else if (!strcmp(event, "proven") || !strcmp(event, "failed")) {
+    else if (pl_event == proven || pl_event == failed) {
+        printf("\n *** event: %s (%d)\n",
+               pl_event == proven ? "proven" : "failed", trace_transitive);
         trace_transitive--;
-        printf("event: %s -- (%d)\n", event, trace_transitive);
+    }
+    else {
+        if (!PL_get_atom_chars(pl_args + 1, &event))
+            PL_succeed;
+
+        printf("\n *** event: %s (#%d) (%d)\n", event, pl_event,
+               trace_transitive);
+        
+        if (!strcmp(event, "call")) {
+            call = pl_event;
+            trace_transitive++;
+        }
+        else if (!strcmp(event, "redo")) {
+            redo = pl_event;
+            trace_transitive++;
+        }
+        else if (!strcmp(event, "proven")) {
+            proven = pl_event;
+            trace_transitive--;
+        }
+        else if (!strcmp(event, "failed")) {
+            failed = pl_event;
+            trace_transitive--;
+        }
     }
 
-#if 0
-    else if (!strcmp(event, "redo")) {
-        printf("*** redo %s\n", pred);
-    }
-#endif
+    if (trace_transitive <= 0)
+        trace_transitive = 1;
 
     PL_succeed;
 
@@ -2151,6 +2421,7 @@ register_predicates(void)
         { "has_errors"     , 0, pl_has_errors  , NON_TRACEABLE, },
         /* predicates for rule/predicate tracing */
         { "trace_predicate", 1, pl_trace_pred  , NON_TRACEABLE, },
+        { "trace_predicate", 3, pl_trace_pred  , NON_TRACEABLE, },
         { "trace_event"    , 2, pl_trace_event , NON_TRACEABLE, },
         
         { NULL, 0, NULL, 0 },
