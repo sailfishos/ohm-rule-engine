@@ -17,7 +17,7 @@
 #include <ohm/ohm-plugin-log.h>
 
 #define PLUGIN_NAME    "rule_engine"
-#define PLUGIN_VERSION "0.0.1"
+#define PLUGIN_VERSION "0.0.2"
 
 #define DEFAULT_STACK  16                            /* 16k stacks */
 
@@ -168,6 +168,15 @@ OHM_EXPORTABLE(void, dump_result, (void *retval))
 OHM_EXPORTABLE(void, prompt, (void))
 {
     prolog_shell(fileno(stdin));
+}
+
+
+/********************
+ * trace
+ ********************/
+OHM_EXPORTABLE(int, trace, (char *command))
+{
+    return prolog_trace_set(command);
 }
 
 
@@ -373,15 +382,15 @@ OHM_PLUGIN_DESCRIPTION(PLUGIN_NAME, PLUGIN_VERSION,
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_PROVIDES_METHODS(rule_engine, 6,
+OHM_PLUGIN_PROVIDES_METHODS(rule_engine, 7,
     OHM_EXPORT(setup_rules, "setup"),
 
     OHM_EXPORT(find_rule,   "find"),
     OHM_EXPORT(eval_rule  , "eval"),
     OHM_EXPORT(free_result, "free"),
     OHM_EXPORT(dump_result, "dump"),
-
-    OHM_EXPORT(prompt     , "prompt")
+    OHM_EXPORT(prompt     , "prompt"),
+    OHM_EXPORT(trace      , "trace")
 );
 
                             

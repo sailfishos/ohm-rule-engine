@@ -7,6 +7,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <glib.h>
+#include <glib-object.h>
+
 #include <prolog/prolog.h>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
@@ -41,7 +44,8 @@
 #define LIBPROLOG     "libprolog.so"
 #define OBJECT_NAME   "name"
 
-#define QUERY_FLAGS (PL_Q_NORMAL | PL_Q_NODEBUG | PL_Q_CATCH_EXCEPTION)
+#define NORMAL_QUERY_FLAGS (PL_Q_NORMAL | PL_Q_NODEBUG | PL_Q_CATCH_EXCEPTION)
+#define TRACE_QUERY_FLAGS (PL_Q_NORMAL | PL_Q_CATCH_EXCEPTION)
 
 
 enum {
@@ -57,6 +61,14 @@ enum {
 };
 
 
+enum {
+    PRED_TRACE_NONE       = 0,
+    PRED_TRACE_SHALLOW,        /* normal trace */
+    PRED_TRACE_TRANSITIVE,     /* trace predicate and all its clauses */
+    PRED_TRACE_SUPPRESS,       /* override transitive traces */
+};
+
+
 static int   load_file(char *path, int foreign);
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   collect_exported  (term_t pl_descriptor, int i, void *data);
@@ -66,9 +78,14 @@ static int   collect_actions   (term_t item, int i, void *data);
 static int   collect_objects   (term_t item, int i, void *data);
 static int   collect_exception (qid_t qid, void *retval);
 
-static int   register_predicates(void);
-static int   libprolog_loading;
-static int   libprolog_errors;
+static int   register_predicates (void);
+static int   predicate_trace_init(void);
+
+static int   predicate_trace_init(void);
+static void  predicate_trace_exit(void);
+
+static int   prolog_tracing(int state);
+
 
 static char libpl[PATH_MAX];
 static char lstack[16], gstack[16], tstack[16], astack[16];
@@ -87,6 +104,23 @@ static char *pl_argv[] = {
     "-A16k",                                   /* argument stack size */
 };
 
+
+/*
+ * load-time error detection
+ */
+
+static int libprolog_loading;
+static int libprolog_errors;
+
+
+/*
+ * predicate tracing
+ */
+
+static int         trace_enabled;
+static int         trace_all;
+static int         trace_transitive;
+static GHashTable *trace_flags;
 
 /*****************************************************************************
  *                      *** initialization & cleanup ***                     *
@@ -167,12 +201,15 @@ prolog_init(char *argv0,
     libprolog_loading = 0;
     CLEAR_ERRORS();
 
+    if ((status = predicate_trace_init()) != 0)
+        return status;
+    
     if ((status = register_predicates()) != 0)
         return status;
     
     if ((status = !PL_initialise(argc + 1, argv)))
         PL_cleanup(0);
-    
+
     return status;
 
     (void)argv0;
@@ -187,6 +224,8 @@ prolog_exit(void)
 {
     if (PL_is_initialised(NULL, NULL))
         PL_cleanup(0);
+
+    predicate_trace_exit();
 }
 
 
@@ -249,7 +288,7 @@ load_file(char *path, int foreign)
     pl_path = PL_new_term_ref();
     PL_put_atom_chars(pl_path, path);
     
-    qid     = PL_open_query(NULL, QUERY_FLAGS, pr_load, pl_path);
+    qid     = PL_open_query(NULL, NORMAL_QUERY_FLAGS, pr_load, pl_path);
     success = PL_next_solution(qid);
     if (PL_exception(qid)) {
         collect_exception(qid, &exception);
@@ -265,82 +304,6 @@ load_file(char *path, int foreign)
         return FALSE;
     else
         return success;
-}
-
-
-/********************
- * pl_loading
- ********************/
-static foreign_t
-pl_loading(term_t noargs, int arity, void *context)
-{
-    if (libprolog_loading < 0) {
-        PROLOG_ERROR("MAJOR BUG: libprolog_loading < 0 (%d)...",
-                     libprolog_loading);
-    }
-
-    if (IS_LOADING()) {
-        /* printf("*** libprolog is loading (%d)...\n", libprolog_loading); */
-        PL_succeed;
-    }
-    else {
-        /* printf("*** libprolog is NOT loading\n"); */
-        PL_fail;
-    }
-}
-
-
-/********************
- * pl_mark_error
- ********************/
-static foreign_t
-pl_mark_error(term_t noargs, int arity, void *context)
-{
-    MARK_ERROR();
-    PL_succeed;
-}
-
-
-/********************
- * pl_clear_errors
- ********************/
-static foreign_t
-pl_clear_errors(term_t noargs, int arity, void *context)
-{
-    CLEAR_ERRORS();
-    PL_succeed;
-}
-
-
-/********************
- * pl_has_errors
- ********************/
-static foreign_t
-pl_has_errors(term_t noargs, int arity, void *context)
-{
-    if (HAS_ERRORS())
-        PL_succeed;
-    else
-        PL_fail;
-}
-
-
-/********************
- * register_predicates
- ********************/
-static int
-register_predicates(void)
-{
-    static PL_extension predicates[] = {
-        { "loading"     , 0, pl_loading     , PL_FA_VARARGS, },
-        { "mark_error"  , 0, pl_mark_error  , PL_FA_VARARGS, },
-        { "clear_errors", 0, pl_clear_errors, PL_FA_VARARGS, },
-        { "has_errors"  , 0, pl_has_errors  , PL_FA_VARARGS, },
-        { NULL, 0, NULL, 0 },
-    };
-
-    PL_register_extensions_in_module("libprolog", predicates);
-    return 0;
 }
 
 
@@ -417,7 +380,7 @@ prolog_undefined(void)
 
     PL_unify_atom_chars(pl_args + 1, "undefined");
     
-    qid = PL_open_query(NULL, QUERY_FLAGS, pr_prop, pl_args);
+    qid = PL_open_query(NULL, NORMAL_QUERY_FLAGS, pr_prop, pl_args);
     while (PL_next_solution(qid)) {
         if (npredicate && ((npredicate & (CHUNK - 1)) == CHUNK - 1)) {
             if (!REALLOC_ARR(predicates, npredicate+1, npredicate+CHUNK+1))
@@ -502,7 +465,7 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
     if (undef)
         prolog_free_predicates(*undef);
     
-    return NULL;
+    return err;
 }
 
 
@@ -691,7 +654,7 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
     }
     va_end(ap);
 
-    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    qid     = PL_open_query(NULL, NORMAL_QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
     if (collect_result(qid, pl_retval, retval) != 0)
         success = FALSE;
@@ -741,14 +704,19 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
             goto out;
         }
     }
-    
-    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+
+    if (trace_enabled)
+        prolog_tracing(TRUE);
+    /*                            NORMAL_QUERY_FLAGS */
+    qid     = PL_open_query(NULL, TRACE_QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
     if (collect_result(qid, pl_retval, retval) != 0)
         success = FALSE;
     PL_close_query(qid);
     
  out:
+    if (trace_enabled)
+        prolog_tracing(FALSE);
     PL_discard_foreign_frame(frame);
     
     return success;
@@ -778,7 +746,7 @@ prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
         PL_put_atom_chars(pl_args + i, arg);
     }
 
-    qid     = PL_open_query(NULL, QUERY_FLAGS, p->predicate, pl_args);
+    qid     = PL_open_query(NULL, NORMAL_QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
     if (collect_result(qid, pl_retval, retval) != 0)
         success = FALSE;
@@ -1073,8 +1041,6 @@ prolog_free_exception(char ***exception)
     FREE((char *)exception[0]);
     FREE(exception - 1);
 }
-
-
 
 
 /*****************************************************************************
@@ -1787,6 +1753,424 @@ shlib_path(char *lib, char *buf, size_t bufsize)
     fclose(maps);
     return lib;
 }
+
+
+
+
+
+/*****************************************************************************
+ *                        *** rule/predicate tracing ***                     *
+ *****************************************************************************/
+
+
+/********************
+ * prolog_tracing
+ ********************/
+static int
+prolog_tracing(int state)
+{
+    predicate_t pred = PL_predicate(state ? "trace" : "notrace", 0, NULL);
+
+    return PL_call_predicate(NULL, PL_Q_NORMAL, pred, 0);
+}
+
+
+/********************
+ * predicate_trace_init
+ ********************/
+static int
+predicate_trace_init(void)
+{
+    trace_enabled = FALSE;
+    trace_all     = FALSE;
+
+    trace_flags = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
+
+    return trace_flags != NULL ? 0 : ENOMEM;
+}
+
+
+/********************
+ * predicate_trace_exit
+ ********************/
+static void
+predicate_trace_exit(void)
+{
+    if (trace_flags != NULL) {
+        g_hash_table_destroy(trace_flags);
+        trace_flags = NULL;
+    }
+    trace_enabled = FALSE;
+    trace_all     = FALSE;
+}
+
+
+/********************
+ * predicate_trace_reset
+ ********************/
+void
+predicate_trace_reset(void)
+{
+    if (trace_flags != NULL)
+        g_hash_table_remove_all(trace_flags);
+}
+
+
+/********************
+ * predicate_trace_set
+ ********************/
+void
+predicate_trace_set(char *pred, int flags)
+{
+    if (trace_flags != NULL && pred != NULL)
+        g_hash_table_replace(trace_flags, pred, (gpointer)flags);
+}
+
+
+/********************
+ * predicate_trace_get
+ ********************/
+int
+predicate_trace_get(char *pred)
+{
+    if (trace_flags != NULL)
+        return (int)g_hash_table_lookup(trace_flags, pred);
+    else
+        return 0;
+}
+
+
+/********************
+ * show_flags_for
+ ********************/
+static void
+show_flags_for(gpointer key, gpointer value, gpointer data)
+{
+    char *predicate = (char *)key;
+    int   flags     = (int)value;
+
+    printf("  %s: ", predicate);
+    switch (flags) {
+    case PRED_TRACE_NONE:       printf("off\n");                 break;
+    case PRED_TRACE_SHALLOW:    printf("on (non-transitive)\n"); break;
+    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n");     break;
+    case PRED_TRACE_SUPPRESS:   printf("suppressed\n");          break;
+    default:                    printf("unknown (%d)\n", flags); break;
+    }
+
+    (void)data;
+}
+
+
+/********************
+ * predicate_trace_show
+ ********************/
+void
+predicate_trace_show(void)
+{
+    if (trace_flags == NULL)
+        return;
+    
+    g_hash_table_foreach(trace_flags, show_flags_for, NULL);
+}
+
+
+/********************
+ * prolog_trace_set
+ ********************/
+int
+prolog_trace_set(char *commands)
+{
+#define MAX_SIZE 1024
+#define COMMAND_ENABLE     "enable"
+#define COMMAND_DISABLE    "disable"
+#define COMMAND_RESET      "reset"
+#define COMMAND_SHOW       "show"
+#define COMMAND_ON         "on"
+#define COMMAND_OFF        "off"
+#define COMMAND_TRANSITIVE "transitive"
+#define COMMAND_SUPPRESS   "suppress"
+#define PREDICATE_ANY      "*"
+
+    char command[MAX_SIZE + 1], *p, *q;
+    int  l;
+
+    p = commands;
+    while (p && *p) {
+        while (*p == ' ' || *p == '\t')
+            p++;
+        for (l = 0, q = command; p && *p && *p != ';' && l < MAX_SIZE; l++)
+            *q++ = *p++;
+        if (l >= MAX_SIZE)
+            return EINVAL;
+        if (*p == ';')
+            *p++ = '\0';
+        *q = '\0';
+        while (l > 0 && (q[-1] == ' ' || q[-1] == '\t'))
+            *--q = '\0';
+
+        if (!strcmp(command, COMMAND_ENABLE)) {
+            trace_enabled = TRUE;
+            printf("rule/predicate tracing enabled\n");
+        }
+        else if (!strcmp(command, COMMAND_DISABLE)) {
+            trace_enabled = FALSE;
+            printf("rule/predicate tracing disabled\n");
+        }
+        else if (!strcmp(command, COMMAND_RESET)) {
+            predicate_trace_reset();
+            trace_enabled = FALSE;
+            printf("rule/predicate tracing reset\n");
+        }
+        else if (!strcmp(command, COMMAND_SHOW)) {
+            prolog_trace_show();
+        }
+        else {
+            char *predicate, *action;
+            int   flags;
+
+            predicate = command;
+            if ((action = strchr(predicate, ' ')) == NULL)
+                return EINVAL;
+            *action++ = '\0';
+
+            if (!strcmp(action, COMMAND_ON))
+                flags = PRED_TRACE_SHALLOW;
+            else if (!strcmp(action, COMMAND_OFF))
+                flags = PRED_TRACE_NONE;
+            else if (!strcmp(action, COMMAND_TRANSITIVE))
+                flags = PRED_TRACE_TRANSITIVE;
+            else if (!strcmp(action, COMMAND_SUPPRESS))
+                flags = PRED_TRACE_SUPPRESS;
+            else {
+                printf("unknown rule trace action \"%s\"\n", action);
+                return EINVAL;
+            }
+            if (!strcmp(predicate, PREDICATE_ANY)) {
+                if (flags == PRED_TRACE_NONE || flags == PRED_TRACE_SUPPRESS) {
+                    trace_all = FALSE;
+                    printf("global predicate tracing turned off\n");
+                }
+                else {
+                    trace_all = TRUE;
+                    printf("global predicate tracing turned on\n");
+                }
+            }
+            else {
+                predicate_trace_set(strdup(predicate), flags);
+                printf("predicate trace for %s set to %s\n", predicate, action);
+            }
+        }
+    }
+
+    return 0;
+}
+
+
+/********************
+ * prolog_trace_show
+ ********************/
+void
+prolog_trace_show(void)
+{
+    printf("Rule/predicate trace settings:\n");
+    printf("  tracing currently %s\n", trace_enabled ? "enabled" : "disabled");
+    printf("  tracing of all predicates %s\n", trace_all ? "on" : "off");
+    predicate_trace_show();
+}
+
+
+/********************
+ * pl_trace_pred
+ ********************/
+static foreign_t
+pl_trace_pred(term_t pl_pred, int arity, void *context)
+{
+    char *pred;
+    int   flags;
+
+    if (arity != 1 || !PL_get_chars(pl_pred, &pred, CVT_WRITE|BUF_DISCARDABLE))
+        PL_fail;
+
+    flags = predicate_trace_get(pred);
+    
+    if (flags == PRED_TRACE_SUPPRESS)
+        PL_fail;
+    
+    if (flags == PRED_TRACE_SHALLOW || flags == PRED_TRACE_TRANSITIVE)
+        PL_succeed;
+    
+    if (trace_all || trace_transitive > 0)
+        PL_succeed;
+
+    PL_fail;
+
+    (void)context;
+}
+
+
+/********************
+ * pl_trace_event
+ ********************/
+static foreign_t
+pl_trace_event(term_t pl_args, int arity, void *context)
+{
+    char   *pred, *event;
+    int     flags;
+
+    if (arity < 2 || !PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
+        PL_succeed;
+
+    flags = predicate_trace_get(pred);
+
+    if (flags != PRED_TRACE_TRANSITIVE)
+        PL_succeed;
+
+    if (!PL_get_atom_chars(pl_args + 1, &event))
+        PL_succeed;
+
+    if (!strcmp(event, "call")) {
+        trace_transitive++;
+        printf("event: %s ++ (%d)\n", event, trace_transitive);
+    }
+    else if (!strcmp(event, "proven") || !strcmp(event, "failed")) {
+        trace_transitive--;
+        printf("event: %s -- (%d)\n", event, trace_transitive);
+    }
+
+#if 0
+    else if (!strcmp(event, "redo")) {
+        printf("*** redo %s\n", pred);
+    }
+#endif
+
+    PL_succeed;
+
+    (void)context;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/*****************************************************************************
+ *                      *** built-in foreign predicates ***                  *
+ *****************************************************************************/
+
+/********************
+ * pl_loading
+ ********************/
+static foreign_t
+pl_loading(term_t noargs, int arity, void *context)
+{
+    if (libprolog_loading < 0) {
+        PROLOG_ERROR("MAJOR BUG: libprolog_loading < 0 (%d)...",
+                     libprolog_loading);
+    }
+
+    if (IS_LOADING()) {
+        PL_succeed;
+    }
+    else {
+        PL_fail;
+    }
+
+    (void)noargs;
+    (void)arity;
+    (void)context;
+}
+
+
+/********************
+ * pl_mark_error
+ ********************/
+static foreign_t
+pl_mark_error(term_t noargs, int arity, void *context)
+{
+    MARK_ERROR();
+    PL_succeed;
+
+    (void)noargs;
+    (void)arity;
+    (void)context;
+}
+
+
+/********************
+ * pl_clear_errors
+ ********************/
+static foreign_t
+pl_clear_errors(term_t noargs, int arity, void *context)
+{
+    CLEAR_ERRORS();
+    PL_succeed;
+
+    (void)noargs;
+    (void)arity;
+    (void)context;
+}
+
+
+/********************
+ * pl_has_errors
+ ********************/
+static foreign_t
+pl_has_errors(term_t noargs, int arity, void *context)
+{
+    if (HAS_ERRORS())
+        PL_succeed;
+    else
+        PL_fail;
+
+    (void)noargs;
+    (void)arity;
+    (void)context;
+}
+
+
+/********************
+ * register_predicates
+ ********************/
+static int
+register_predicates(void)
+{
+#define NON_TRACEABLE (PL_FA_VARARGS | PL_FA_NOTRACE)
+    
+    static PL_extension predicates[] = {
+        /* predicates for rule/predicate load-time error detection */
+        { "loading"        , 0, pl_loading     , NON_TRACEABLE, },
+        { "mark_error"     , 0, pl_mark_error  , NON_TRACEABLE, },
+        { "clear_errors"   , 0, pl_clear_errors, NON_TRACEABLE, },
+        { "has_errors"     , 0, pl_has_errors  , NON_TRACEABLE, },
+        /* predicates for rule/predicate tracing */
+        { "trace_predicate", 1, pl_trace_pred  , NON_TRACEABLE, },
+        { "trace_event"    , 2, pl_trace_event , NON_TRACEABLE, },
+        
+        { NULL, 0, NULL, 0 },
+    };
+
+    PL_register_extensions_in_module("libprolog", predicates);
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
