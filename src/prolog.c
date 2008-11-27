@@ -367,7 +367,7 @@ prolog_predicates(char *query)
 
     frame = PL_open_foreign_frame();
 
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_exported, pl_predlist)) {
+    if (!PL_call_predicate(NULL, QUERY_FLAGS, pr_exported, pl_predlist)) {
         /* if we have a new ruleset emulate old interface if we can */
         if (prolog_rules(&predicates, &undefined) != 0)
             goto fail;
@@ -478,7 +478,7 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
     frame   = PL_open_foreign_frame();
     pl_args = PL_new_term_refs(2);
 
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_rules, pl_args))
+    if (!PL_call_predicate(NULL, QUERY_FLAGS, pr_rules, pl_args))
         return ENOENT;
     
     if ((nrule = prolog_list_length(pl_args)) <= 0)
