@@ -70,6 +70,7 @@ static int   register_predicates(void);
 static int   libprolog_loading;
 static int   libprolog_errors;
 
+static int  initialized = FALSE;
 static char libpl[PATH_MAX];
 static char lstack[16], gstack[16], tstack[16], astack[16];
 
@@ -101,6 +102,9 @@ prolog_init(char *argv0,
 {
     char **argv;
     int    argc, status;
+
+    if (initialized)
+        return EBUSY;
 
     /*
      * Notes:
@@ -170,9 +174,12 @@ prolog_init(char *argv0,
     if ((status = register_predicates()) != 0)
         return status;
     
-    if ((status = !PL_initialise(argc + 1, argv)))
+    if (!PL_initialise(argc + 1, argv)) {
         PL_cleanup(0);
+        return EINVAL;
+    }
     
+    initialized = TRUE;
     return status;
 
     (void)argv0;
@@ -185,8 +192,13 @@ prolog_init(char *argv0,
 void
 prolog_exit(void)
 {
+    if (!initialized)
+        return;
+    
     if (PL_is_initialised(NULL, NULL))
         PL_cleanup(0);
+
+    initialized = FALSE;
 }
 
 
@@ -228,6 +240,9 @@ load_file(char *path, int foreign)
     term_t       pl_path;
     int          success;
 
+    if (!initialized)
+        return ENOMEDIUM;
+    
     CLEAR_ERRORS();
     START_LOADING();
     
@@ -363,6 +378,9 @@ prolog_predicates(char *query)
     prolog_predicate_t *predicates, *undefined, *p;
     int                 npredicate;
 
+    if (!initialized)
+        return NULL;
+    
     predicates = NULL;
 
     frame = PL_open_foreign_frame();
@@ -468,6 +486,9 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
     fid_t       frame;
     term_t      pl_args;
     int         err, nrule, nundef;
+
+    if (!initialized)
+        return ENOMEDIUM;
 
     if (rules == NULL || undef == NULL)
         return EINVAL;
