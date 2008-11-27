@@ -364,15 +364,27 @@ prolog_predicates(char *query)
     fid_t        frame;
     term_t       pl_predlist = PL_new_term_ref();
 
-    prolog_predicate_t *predicates;
+    prolog_predicate_t *predicates, *undefined, *p;
     int                 npredicate;
 
     predicates = NULL;
 
     frame = PL_open_foreign_frame();
 
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_exported, pl_predlist))
+    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_exported, pl_predlist)) {
+        /* if we have a new ruleset emulate old interface if we can */
+        if (prolog_rules(&predicates, &undefined) != 0)
+            goto fail;
+
+        if (undefined == NULL)
+            goto success;
+
+        for (p = undefined; p->name != NULL; p++)
+            PROLOG_WARNING("undefined predicate %s:%s/%d",
+                           p->module, p->name, p->arity);
+        prolog_free_predicates(undefined);
         goto fail;
+    }
     
     if ((npredicate = prolog_list_length(pl_predlist)) <= 0)
         goto fail;
@@ -383,6 +395,7 @@ prolog_predicates(char *query)
     if (prolog_walk_list(pl_predlist, collect_exported, predicates))
         goto fail;
     
+ success:
     PL_discard_foreign_frame(frame);
     
     return predicates;
@@ -414,7 +427,7 @@ prolog_undefined(void)
     npredicate = 0;
 
     if ((predicates = ALLOC_ARRAY(prolog_predicate_t, CHUNK + 1)) == NULL)
-        goto fail;
+        return NULL;
     
     frame = PL_open_foreign_frame();
     pl_args = PL_new_term_refs(2);
@@ -505,7 +518,7 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
         prolog_free_predicates(*rules);
     if (undef)
         prolog_free_predicates(*undef);
-    
+    *rules = *undef = NULL;
     return err;
 }
 
