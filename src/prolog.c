@@ -123,7 +123,9 @@ static int libprolog_errors;
 #define PORT_EXIT          "exit"
 #define PORT_FAIL          "fail"
 #define PORT_ALL           "all"
+#define PRED_DEFAULT       "default"
 #define WILDCARD_ANY       "*"
+#define WILDCARD_ALL       "%"
 
 enum {
     PRED_TRACE_NONE       = 0x00,       /* not traced */
@@ -146,6 +148,16 @@ typedef struct {
     int failed;                         /* failed (fail) port flags */
 } pred_trace_t;
 
+
+
+typedef struct {
+    char   *module;
+    char   *name;
+    char   *arity;
+    void   *data;
+} foreach_t;
+
+
 static int   register_predicates (void);
 static int   predicate_trace_init(void);
 
@@ -155,6 +167,8 @@ static void  predicate_trace_free(gpointer data);
 static void  predicate_trace_clear(char *pred);
 static pred_trace_t *predicate_trace_get(char *pred);
 static int   prolog_tracing(int state);
+static int   predicate_trace_set_matching(char *pattern, char *action);
+
 
 
 static int         trace_enabled;       /* global trace enable/disable flag */
@@ -779,10 +793,9 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         }
     }
 
-    if (trace_enabled) {
+    if (trace_enabled)
         prolog_tracing(TRUE);
-        trace_transitive = 0;
-    }
+
     /*                            NORMAL_QUERY_FLAGS */
     qid     = PL_open_query(NULL, TRACE_QUERY_FLAGS, p->predicate, pl_args);
     success = PL_next_solution(qid);
@@ -791,12 +804,9 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     PL_close_query(qid);
     
  out:
-    if (trace_enabled) {
+    if (trace_enabled)
         prolog_tracing(FALSE);
-        if (trace_transitive != 0)
-            printf("\n*** transitive = %d upon return\n", trace_transitive);
-        trace_transitive = 0;
-    }
+    
     PL_discard_foreign_frame(frame);
     
     return success;
@@ -1896,8 +1906,11 @@ predicate_trace_free(gpointer data)
 {
     pred_trace_t *pt = (pred_trace_t *)data;
 
-    if (pt != NULL)
+    if (pt != NULL) {
+        if (pt->trace == PRED_TRACE_TRANSITIVE)
+            trace_transitive--;
         free(pt);
+    }
 }
 
 
@@ -1956,6 +1969,9 @@ predicate_trace_set(char *pred, char *cmd)
         g_hash_table_insert(trace_flags, strdup(pred), pt);
     }
 
+    if (pt->trace != PRED_TRACE_TRANSITIVE)
+        trace_transitive--;
+    
     if (!strcmp(cmd, COMMAND_OFF)) {
         pt->trace = PRED_TRACE_NONE;
         return;
@@ -1970,6 +1986,7 @@ predicate_trace_set(char *pred, char *cmd)
     }
     if (!strcmp(cmd, COMMAND_TRANSITIVE)) {
         pt->trace = PRED_TRACE_TRANSITIVE;
+        trace_transitive++;
         return;
     }
     if (!strcmp(cmd, COMMAND_DEFAULTS)) {
@@ -2027,6 +2044,99 @@ predicate_trace_set(char *pred, char *cmd)
 
 
 /********************
+ * trace_set_matching
+ ********************/
+static gboolean
+trace_set_matching(gpointer key, gpointer value, gpointer data)
+{
+    char         *predicate = (char *)key;
+    foreach_t    *fe        = (foreach_t *)data;
+    char         *pm, *pn, *pa, *action, *m, *n, *a;
+
+#define MATCHES(p, s, l, t)                                       \
+    ((*(p) == '%' && *(p+1) == '\0') || (!strncmp(p, s, l) && s[l] == t))
+
+    pm     = fe->module;
+    pn     = fe->name;
+    pa     = fe->arity;
+    action = fe->data;
+    
+    m = predicate;
+    n = strchr(m, ':');
+    a = strchr(n, '/');
+
+    if (m == NULL || n == NULL || a == NULL)
+        return FALSE;
+    
+    n++;
+    a++;
+
+
+    /*
+     * Notes: This is a bit stupid, we already have a pointer to pt, yet
+     *        we call predicate_trace_set which looks it up again. This
+     *        is not time-critical, so we don't care for now...
+     */
+
+    if (MATCHES(pm, m, strlen(pm), ':') &&
+        MATCHES(pn, n, strlen(pn), '/') &&
+        MATCHES(pa, a, strlen(pa), '\0')) {
+        printf("  %s %s\n", predicate, action);
+        if (!strcmp(action, COMMAND_CLEAR))
+            return TRUE;    /* foreach_remove will remove the entry */
+        else
+            predicate_trace_set(predicate, action);
+    }
+        
+    return FALSE;
+
+    (void)value;
+}
+
+
+/********************
+ * predicate_trace_set_matching
+ ********************/
+static int
+predicate_trace_set_matching(char *pattern, char *action)
+{
+    foreach_t  fe;
+    char       buf[256];
+    char      *module, *name, *arity, defname[] = ":%", defarity[] = "/%";
+
+    strncpy(buf, pattern, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+    
+    module = buf;
+    if ((name = strchr(module, ':')) == NULL) {
+        name = defname;
+        arity = strchr(module, '/');
+    }
+    else
+        arity = strchr(name, '/');
+    if (arity == NULL)
+        arity = defarity;
+    
+    *name++ = '\0';
+    *arity++ = '\0';
+
+    printf("module=\"%s\", name=\"%s\", arity=\"%s\"\n", module, name, arity);
+
+    fe.module = module;
+    fe.name   = name;
+    fe.arity  = arity;
+    fe.data   = action;
+    
+    if (!strcmp(action, COMMAND_CLEAR))
+        g_hash_table_foreach_remove(trace_flags, trace_set_matching, &fe);
+    else
+        g_hash_table_foreach(trace_flags, (GHFunc)trace_set_matching, &fe);
+    return 0;
+}
+
+
+
+/********************
  * predicate_trace_get
  ********************/
 static pred_trace_t *
@@ -2058,29 +2168,31 @@ show_flags_for(gpointer key, gpointer value, gpointer data)
 {
     char         *predicate = (char *)key;
     pred_trace_t *pt        = (pred_trace_t *)value;
+    int           on        = 0;
 
     printf("  %s: ", predicate);
-    printf("    tracing: ");
     switch (pt->trace) {
     case PRED_TRACE_NONE:       printf("off\n");                     break;
-    case PRED_TRACE_SHALLOW:    printf("on (non-transitive)\n");     break;
-    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n");         break;
+    case PRED_TRACE_SHALLOW:    printf("on\n"); on = 1;              break;
+    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n"); on = 1; break;
     case PRED_TRACE_SUPPRESS:   printf("suppressed\n");              break;
     default:                    printf("unknown (%d)\n", pt->trace); break;
     }
 
-    printf("    call port: %s\n",
-           pt->call == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->call == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("    redo port: %s\n",
-           pt->redo == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->redo == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("    proven port: %s\n",
-           pt->proven == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->proven == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("    failed port: %s\n",
-           pt->failed == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->failed == PRED_PORT_SHORT ? "short" : "detailed"));
+    if (on) {
+        printf("    call port: %s\n",
+               pt->call == PRED_PORT_SUPPRESS ? "suppress" :
+               (pt->call == PRED_PORT_SHORT ? "short" : "detailed"));
+        printf("    redo port: %s\n",
+               pt->redo == PRED_PORT_SUPPRESS ? "suppress" :
+               (pt->redo == PRED_PORT_SHORT ? "short" : "detailed"));
+        printf("    proven port: %s\n",
+               pt->proven == PRED_PORT_SUPPRESS ? "suppress" :
+               (pt->proven == PRED_PORT_SHORT ? "short" : "detailed"));
+        printf("    failed port: %s\n",
+               pt->failed == PRED_PORT_SUPPRESS ? "suppress" :
+               (pt->failed == PRED_PORT_SHORT ? "short" : "detailed"));
+    }
     
     (void)data;
 }
@@ -2155,37 +2267,12 @@ prolog_trace_set(char *commands)
                 if (next != NULL)
                     *next++ = '\0';
                 printf("action %s for predicate %s\n", a, predicate);
-                predicate_trace_set(predicate, a);
+
+                if (strchr(predicate, WILDCARD_ALL[0]) != NULL)
+                    predicate_trace_set_matching(predicate, a);
+                else
+                    predicate_trace_set(predicate, a);
             }
-            
-#if 0
-            if (!strcmp(action, COMMAND_ON))
-                flags = PRED_TRACE_SHALLOW;
-            else if (!strcmp(action, COMMAND_OFF))
-                flags = PRED_TRACE_NONE;
-            else if (!strcmp(action, COMMAND_TRANSITIVE))
-                flags = PRED_TRACE_TRANSITIVE;
-            else if (!strcmp(action, COMMAND_SUPPRESS))
-                flags = PRED_TRACE_SUPPRESS;
-            else {
-                printf("unknown rule trace action \"%s\"\n", action);
-                return EINVAL;
-            }
-            if (!strcmp(predicate, WILDCARD_ANY)) {
-                if (flags == PRED_TRACE_NONE || flags == PRED_TRACE_SUPPRESS) {
-                    trace_all = FALSE;
-                    printf("global predicate tracing turned off\n");
-                }
-                else {
-                    trace_all = TRUE;
-                    printf("global predicate tracing turned on\n");
-                }
-            }
-            else {
-                predicate_trace_set(strdup(predicate), flags);
-                printf("predicate trace for %s set to %s\n", predicate, action);
-            }
-#endif
         }
     }
 
@@ -2213,14 +2300,11 @@ prolog_trace_show(void)
 static foreign_t
 pl_trace_pred(term_t pl_args, int arity, void *context)
 {
-    static atom_t  call = 0, redo = 0, proven = 0, failed = 0;
-    atom_t         pl_port;
-    char          *pred, *port, *format;
+    char          *pred, *state;
     pred_trace_t  *pt;
-    int            flags, type;
+    int            flags;
 
-
-    if (arity != 1 && arity != 3)
+    if (arity != 1 && arity != 2)
         PL_fail;
     
     if (!PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
@@ -2241,44 +2325,86 @@ pl_trace_pred(term_t pl_args, int arity, void *context)
     /* explicit tracing on or global tracing on or transitive tracing on */
     if (flags == PRED_TRACE_SHALLOW || flags == PRED_TRACE_TRANSITIVE ||
         (flags == PRED_TRACE_NONE && (trace_all || trace_transitive > 0))) {
-        if (arity == 1)
+        if (arity == 1)              /* (predicate) */
             PL_succeed;
-
-        if (!PL_is_atom(pl_args + 1))
-            PL_fail;
         
-        PL_get_atom(pl_args + 1, &pl_port);
-        
-#define PT_TYPE(pt, port, dflt) type = (pt) ? (pt)->port : PRED_PORT_##dflt
-        if      (pl_port == call)   PT_TYPE(pt, call, DETAILED);
-        else if (pl_port == redo)   PT_TYPE(pt, redo, DETAILED);
-        else if (pl_port == proven) PT_TYPE(pt, proven, SHORT);
-        else if (pl_port == failed) PT_TYPE(pt, failed, SHORT);
-        else if (!PL_get_atom_chars(pl_args + 1, &port))
-            PL_fail;
-        else if (!strcmp(port, "call"))   PT_TYPE(pt, call, DETAILED);
-        else if (!strcmp(port, "redo"))   PT_TYPE(pt, redo, DETAILED);
-        else if (!strcmp(port, "proven")) PT_TYPE(pt, proven, SHORT);
-        else if (!strcmp(port, "failed")) PT_TYPE(pt, failed, SHORT);
+        /* arity == 2 (predicate, TraceSetting) */
+        switch (flags) {
+        case PRED_TRACE_NONE:       state = COMMAND_OFF;        break;
+        case PRED_TRACE_SHALLOW:    state = COMMAND_ON;         break;
+        case PRED_TRACE_TRANSITIVE: state = COMMAND_TRANSITIVE; break;
+        case PRED_TRACE_SUPPRESS:   state = COMMAND_SUPPRESS;   break;
+        default:                    state = "unknown";          break;
+        }
+        if (PL_unify_atom(pl_args + 1, PL_new_atom(state)))
+            PL_succeed;
         else
             PL_fail;
-#undef PT_TYPE
+    }
         
-        switch (type) {
-        case PRED_PORT_SUPPRESS: PL_fail;
-        case PRED_PORT_DETAILED: format = COMMAND_DETAILED; break;
-        case PRED_PORT_SHORT:    format = COMMAND_SHORT;    break;
-        default:                 format = COMMAND_SHORT;    break;
-        }
+    PL_fail;
+
+    (void)context;
+}
 
 
-        if (PL_unify_atom(pl_args + 2, PL_new_atom(format)))
+/********************
+ * pl_trace_config
+ ********************/
+static foreign_t
+pl_trace_config(term_t pl_args, int arity, void *context)
+{
+    static atom_t  call = 0, redo = 0, proven = 0, failed = 0;
+    atom_t         pl_port;
+    pred_trace_t  *pt;
+    char          *pred, *port, *format;
+    int            type;
+
+    if (arity != 3)
+        PL_fail;
+    
+    if (!PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
+        PL_fail;
+    
+    if ((pt = predicate_trace_get(pred)) == NULL &&
+        (pt = predicate_trace_get(PRED_DEFAULT)) == NULL) {
+        if (PL_unify_atom(pl_args + 2, PL_new_atom(COMMAND_SHORT)))
             PL_succeed;
         else
             PL_fail;
     }
     
-    PL_fail;
+    if (!PL_is_atom(pl_args + 1))
+        PL_fail;
+        
+    PL_get_atom(pl_args + 1, &pl_port);
+        
+#define PT_TYPE(pt, port, dflt) type = (pt) ? (pt)->port : PRED_PORT_##dflt
+    if      (pl_port == call)   PT_TYPE(pt, call, DETAILED);
+    else if (pl_port == redo)   PT_TYPE(pt, redo, DETAILED);
+    else if (pl_port == proven) PT_TYPE(pt, proven, SHORT);
+    else if (pl_port == failed) PT_TYPE(pt, failed, SHORT);
+    else if (!PL_get_atom_chars(pl_args + 1, &port))
+        PL_fail;
+    else if (!strcmp(port, "call"))   PT_TYPE(pt, call, DETAILED);
+    else if (!strcmp(port, "redo"))   PT_TYPE(pt, redo, DETAILED);
+    else if (!strcmp(port, "proven")) PT_TYPE(pt, proven, SHORT);
+    else if (!strcmp(port, "failed")) PT_TYPE(pt, failed, SHORT);
+    else
+        PL_fail;
+#undef PT_TYPE
+        
+    switch (type) {
+    case PRED_PORT_SUPPRESS: format = COMMAND_SUPPRESS; break;
+    case PRED_PORT_DETAILED: format = COMMAND_DETAILED; break;
+    case PRED_PORT_SHORT:    format = COMMAND_SHORT;    break;
+    default:                 format = COMMAND_SHORT;    break;
+    }
+    
+    if (PL_unify_atom(pl_args + 2, PL_new_atom(format)))
+        PL_succeed;
+    else
+        PL_fail;
 
     (void)context;
 }
@@ -2454,297 +2580,18 @@ register_predicates(void)
         { "has_errors"     , 0, pl_has_errors  , NON_TRACEABLE, },
         /* predicates for rule/predicate tracing */
         { "trace_predicate", 1, pl_trace_pred  , NON_TRACEABLE, },
+        { "trace_predicate", 2, pl_trace_pred  , NON_TRACEABLE, },
         { "trace_predicate", 3, pl_trace_pred  , NON_TRACEABLE, },
         { "trace_event"    , 2, pl_trace_event , NON_TRACEABLE, },
+        { "trace_config"   , 3, pl_trace_config, NON_TRACEABLE, },
         
         { NULL, 0, NULL, 0 },
     };
 
     PL_register_extensions_in_module("libprolog", predicates);
+
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#if 0
-
-/*****************************************************************************
- *                         *** prolog_exec & friends ***                     *
- *****************************************************************************/
-
-
-/********************
- * prolog_run
- ********************/
-#if 0
-int
-prolog_run(char *code)
-{
-    fid_t       frame;
-    predicate_t pr_atom2term, pr_goal;
-    functor_t   f_goal;
-    term_t      pl_lgb, pl_goal, pl_args;
-    qid_t       qid;
-    int         i, arity, status;
-
-    /*
-     * parse code using atom_to_term
-     */
-    
-    if ((pr_atom2term = PL_predicate("atom_to_term", 3, NULL)) == NULL)
-        return ENOENT;
-    
-    frame = PL_open_foreign_frame();
-
-    /* atom_to_term(Line, Goal, Bindings) */
-    pl_lgb = PL_new_term_refs(3);
-    PL_put_atom_chars(pl_lgb, code);
-    
-    status = EINVAL;
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_atom2term, pl_lgb)) {
-        printf("*** failed to run atom_to_term\n");
-        goto out;
-    }
-
-    pl_goal = pl_lgb + 1;
-    if (!PL_get_functor(pl_goal, &f_goal)) {
-        printf("*** failed to get functor for goal\n");
-        goto out;
-    }
-
-    /* create argument list */
-    if ((arity = PL_functor_arity(f_goal)) > 0) {
-        pl_args = PL_new_term_refs(arity);
-        for (i = 0; i < arity; i++)
-            _PL_get_arg(i + 1, pl_goal, pl_args + i);
-    }
-    else
-        pl_args = 0;
-    
-    pr_goal = PL_pred(f_goal, NULL);
-
-#if 0
-    qid = PL_open_query(NULL, PL_Q_NORMAL, pr_goal, pl_args);
-    while (PL_next_solution(qid))
-        ;
-    /* PL_exception(qid); */
-    PL_close_query(qid);
-#else
-    PL_call_predicate(NULL, PL_Q_NORMAL, pr_goal, pl_args);
-
-    {
-        pl_result = PL_new_term_ref();
-        PL_put_atom_chars(pl_result, "Result");
-        
-    }
-
-#endif
-    
-    status = 0;
-
- out:
-    PL_discard_foreign_frame(frame);
-    return status;
-}
-
-#else
-
-/* THIS_WORKS_SOMEWHAT */
-
-int
-prolog_run(char *code)
-{
-    fid_t       frame;
-    predicate_t pr_a2t, pr_expq, pr_xeq, pr_write;
-    term_t      pl_lgb, pl_gegbeb, pl_egeb, pl_goal, pl_args;
-    int         status;
-
-    
-    /* find predicates atom_to_term and expand_query */
-    if ((pr_a2t = PL_predicate("atom_to_term", 3, NULL)) == NULL)
-        return ENOENT;
-    
-    if ((pr_expq = PL_predicate("expand_query", 4, "user")) == NULL &&
-        (pr_expq = PL_predicate("expand_query", 4, NULL))   == NULL)
-        return ENOENT;
-    
-    pr_xeq   = PL_predicate("$execute", 2, "$toplevel");
-    pr_write = PL_predicate("write", 1, NULL);
-
-    frame  = PL_open_foreign_frame();
-
-    /* atom_to_term(Line, Goal, Bindings) */
-    pl_lgb = PL_new_term_refs(3);
-    PL_put_atom_chars(pl_lgb, code);
-    
-    status = EINVAL;
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_a2t, pl_lgb)) {
-        printf("*** failed to run atom_to_term\n");
-        goto out;
-    }
-
-    /* expand_query(Goal, ExpandedGoal, Bindings, ExpandedBindings) */
-    pl_gegbeb = PL_new_term_refs(4);
-    if (!PL_unify(pl_gegbeb + 0, pl_lgb + 1) ||
-        !PL_unify(pl_gegbeb + 2, pl_lgb + 2)) {
-        printf("*** failed to unify gegbeb\n");
-        goto out;
-    }
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_expq, pl_gegbeb)) {
-        printf("*** expand_query failed\n");
-        goto out;
-    }
-
-    pl_egeb = PL_new_term_refs(2);
-    if (!PL_unify(pl_egeb + 0, pl_gegbeb + 1) ||
-        !PL_unify(pl_egeb + 1, pl_gegbeb + 3)) {
-        printf("*** failed to unify egeb\n");
-        goto out;
-    }
-
-    PL_call_predicate(NULL, PL_Q_NORMAL, pr_xeq, pl_egeb);
-    PL_call_predicate(NULL, PL_Q_NORMAL, pr_write, pl_egeb + 1);
-    
-    status = 0;
-    
- out:
-    PL_discard_foreign_frame(frame);
-
-    return status;
-}
-
-#endif
-
-#if 0
-
-int
-prolog_run(char *code)
-{
-    fid_t       frame;
-    predicate_t pr_a2t, pr_expq;
-    functor_t   xeq;
-    term_t      pl_lgb, pl_gegbeb, pl_egeb, pl_goal;
-    int         status;
-
-    
-    /* find predicates atom_to_term and expand_query */
-    if ((pr_a2t = PL_predicate("atom_to_term", 3, NULL)) == NULL)
-        return ENOENT;
-    
-    if ((pr_expq = PL_predicate("expand_query", 4, "user")) == NULL &&
-        (pr_expq = PL_predicate("expand_query", 4, NULL))   == NULL)
-        return ENOENT;
-       
-    xeq = PL_new_functor(PL_new_atom("$execute"), 2);
-    
-    frame = PL_open_foreign_frame();
-
-    /* atom_to_term(Line, Goal, Bindings) */
-    pl_lgb = PL_new_term_refs(3);
-    PL_put_atom_chars(pl_lgb, code);
-    
-    status = EINVAL;
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_a2t, pl_lgb)) {
-        printf("*** failed to run atom_to_term\n");
-        goto out;
-    }
-
-    /* expand_query(Goal, ExpandedGoal, Bindings, ExpandedBindings) */
-    pl_gegbeb = PL_new_term_refs(4);
-    if (!PL_unify(pl_gegbeb + 0, pl_lgb + 1) ||
-        !PL_unify(pl_gegbeb + 2, pl_lgb + 2)) {
-        printf("*** failed to unify gegbeb\n");
-        goto out;
-    }
-
-    if (!PL_call_predicate(NULL, PL_Q_NORMAL, pr_expq, pl_gegbeb)) {
-        printf("*** expand_query failed\n");
-        goto out;
-    }
-
-    pl_egeb = PL_new_term_refs(2);
-    if (!PL_unify(pl_egeb + 0, pl_gegbeb + 1) ||
-        !PL_unify(pl_egeb + 1, pl_gegbeb + 3)) {
-        printf("*** failed to unify egeb\n");
-        goto out;
-    }
-
-    PL_cons_functor(pl_goal, xeq, pl_egeb + 0, pl_egeb + 1);
-    if (!PL_call(pl_goal, NULL)) {
-        printf("*** $execute failed\n");
-        goto out;
-    }
-        
-    status = 0;
-    
-
- out:
-    PL_discard_foreign_frame(frame);
-
-    return status;
-}
-#endif
-
-
-
-/********************
- * prolog_exec
- ********************/
-int
-prolog_exec(char *code)
-{
-    IOSTREAM    *in, *old;
-    predicate_t  pr_set_input, pr_toplevel;
-    fid_t        frame;
-    int          status;
-
-
-    if ((pr_toplevel = PL_predicate("$toplevel", 0, NULL)) == NULL)
-        return EIO;
-    
-    if ((in = Sopen_string(NULL, code, strlen(code), "r")) == NULL)
-        return errno;
-
-    old         = Suser_input;
-    Suser_input = in;
-
-    frame = PL_open_foreign_frame();
-    PL_toplevel();
-    PL_discard_foreign_frame(frame);
-    status = 0;
-
-    Suser_input = old;
-
-#if 0
-    if (in)                      /* XXX TODO: is this garbage-collected ? */
-        Sclose(in);
-#endif
-    
-    return status;
-}
-
-#endif
 
 
 
