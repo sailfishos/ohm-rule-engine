@@ -1,3 +1,9 @@
+libprolog (0.0.5+nmu1) unstable; urgency=low
+
+  * 
+
+ -- Ismo Puustinen <ismo.h.puustinen@nokia.com>  Fri, 28 Nov 2008 12:26:07 +0200
+
 libprolog (0.0.5) unstable; urgency=low
 
   * Miscallaneous fixes.
