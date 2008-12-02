@@ -134,16 +134,16 @@ fact_field_value(OhmFact *fact, char *field, char *buf, size_t size)
 /********************
  * fact_field_term
  ********************/
-static char *
+static int
 fact_field_term(OhmFact *fact, char *field, term_t term)
 {
-    GValue *value, gstr = {0,};
+    GValue *value;
     int     i;
     double  d;
     char   *s;
 
     if ((value = ohm_fact_get(fact, field)) == NULL)
-        return NULL;
+        return FALSE;
 
     switch (G_VALUE_TYPE(value)) {
     case G_TYPE_INT:
@@ -171,7 +171,7 @@ fact_field_term(OhmFact *fact, char *field, term_t term)
         PL_put_float(term, d);
         break;
     case G_TYPE_STRING:
-        s = g_value_get_string(value);
+        s = (char *)g_value_get_string(value);
         PL_put_atom_chars(term, s);
         break;
     default:
@@ -191,7 +191,9 @@ fact_values(context_t *ctx, OhmFact *fact, term_t *pl_values)
     int     n    = ctx->nfield;
     term_t  list = PL_new_term_ref();
     term_t  item = PL_new_term_ref();
+#ifdef __STRING_ONLY_FIELDS__
     char    value[64];
+#endif
 
     PL_put_nil(list);
     while (n-- > 0) {
