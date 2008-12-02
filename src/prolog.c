@@ -2298,7 +2298,8 @@ prolog_trace_show(char *predicate)
     if (!predicate || !*predicate || !strcmp(predicate, WILDCARD_ALL)) {
         printf("Rule/predicate trace settings:\n");
         printf("  tracing %s\n", trace_enabled ? "enabled" : "disabled");
-        printf("  tracing of all predicates %s\n", trace_all ? "on" : "off");
+        printf("  forced tracing of all predicates %s\n",
+               trace_all ? "on" : "off");
         printf("  trace indentation %d / level\n", trace_indent);
         g_hash_table_foreach(trace_flags,
                              (GHFunc)predicate_trace_show, NULL);
@@ -2306,6 +2307,7 @@ prolog_trace_show(char *predicate)
     else
         predicate_trace_show(predicate, NULL, (void *)0x1);
 }
+
 
 /********************
  * pl_trace_pred
@@ -2325,7 +2327,7 @@ pl_trace_pred(term_t pl_args, int arity, void *context)
     
     pt = predicate_trace_get(pred);
 
-    /* no entry and no globl or transitive tracing on, reject */
+    /* no explicit, global or transitive tracing in effect, reject */
     if (pt == NULL && !trace_all && trace_transitive <= 0)
         PL_fail;
     
@@ -2335,13 +2337,13 @@ pl_trace_pred(term_t pl_args, int arity, void *context)
     if (flags == PRED_TRACE_SUPPRESS)
         PL_fail;
     
-    /* explicit tracing on or global tracing on or transitive tracing on */
+    /* explicit, global or transitive tracing in effect */
     if (flags == PRED_TRACE_SHALLOW || flags == PRED_TRACE_TRANSITIVE ||
         (flags == PRED_TRACE_NONE && (trace_all || trace_transitive > 0))) {
-        if (arity == 1)              /* (predicate) */
+        if (arity == 1)              /* trace_predicate(predicate) */
             PL_succeed;
         
-        /* arity == 2 (predicate, TraceSetting) */
+        /* (arity == 2)                 trace_predicate(predicate, Setting) */
         switch (flags) {
         case PRED_TRACE_NONE:       state = COMMAND_OFF;        break;
         case PRED_TRACE_SHALLOW:    state = COMMAND_ON;         break;
@@ -2421,83 +2423,6 @@ pl_trace_config(term_t pl_args, int arity, void *context)
 
     (void)context;
 }
-
-
-/********************
- * pl_trace_event
- ********************/
-static foreign_t
-pl_trace_event(term_t pl_args, int arity, void *context)
-{
-    static atom_t  call = 0, redo = 0, proven = 0, failed = 0;
-    atom_t         pl_event;
-    char          *pred, *event = NULL;
-    pred_trace_t  *pt;
-
-    
-    if (arity < 2 || !PL_get_chars(pl_args, &pred, CVT_WRITE|BUF_DISCARDABLE))
-        PL_succeed;
-
-    pt = predicate_trace_get(pred);
-
-    if (pt == NULL || pt->trace != PRED_TRACE_TRANSITIVE)
-        PL_succeed;
-
-    if (!PL_is_atom(pl_args + 1))
-        PL_succeed;
-
-    PL_get_atom(pl_args + 1, &pl_event);
-
-    if (pl_event == call || pl_event == redo) {
-        printf("\n *** event: %s (%d)\n", pl_event == call ? "call" : "redo",
-               trace_transitive);
-        trace_transitive++;
-    }
-    else if (pl_event == proven || pl_event == failed) {
-        printf("\n *** event: %s (%d)\n",
-               pl_event == proven ? "proven" : "failed", trace_transitive);
-        trace_transitive--;
-    }
-    else {
-        if (!PL_get_atom_chars(pl_args + 1, &event))
-            PL_succeed;
-
-        printf("\n *** event: %s (#%d) (%d)\n", event, pl_event,
-               trace_transitive);
-        
-        if (!strcmp(event, "call")) {
-            call = pl_event;
-            trace_transitive++;
-        }
-        else if (!strcmp(event, "redo")) {
-            redo = pl_event;
-            trace_transitive++;
-        }
-        else if (!strcmp(event, "proven")) {
-            proven = pl_event;
-            trace_transitive--;
-        }
-        else if (!strcmp(event, "failed")) {
-            failed = pl_event;
-            trace_transitive--;
-        }
-    }
-
-    if (trace_transitive <= 0)
-        trace_transitive = 1;
-
-    PL_succeed;
-
-    (void)context;
-}
-
-
-
-
-
-
-
-
 
 
 
@@ -2594,8 +2519,6 @@ register_predicates(void)
         /* predicates for rule/predicate tracing */
         { "trace_predicate", 1, pl_trace_pred  , NON_TRACEABLE, },
         { "trace_predicate", 2, pl_trace_pred  , NON_TRACEABLE, },
-        { "trace_predicate", 3, pl_trace_pred  , NON_TRACEABLE, },
-        { "trace_event"    , 2, pl_trace_event , NON_TRACEABLE, },
         { "trace_config"   , 3, pl_trace_config, NON_TRACEABLE, },
         
         { NULL, 0, NULL, 0 },
