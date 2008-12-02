@@ -1,3 +1,11 @@
+libprolog (0.0.7) unstable; urgency=low
+
+  * Handle lack of and multiple initializations.
+  * Preliminary rule tracing infrastructure.
+  * Fix a bug causing occasional crashes upon prolog exceptions.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 27 Nov 2008 15:00:57 +0200
+
 libprolog (0.0.6) unstable; urgency=low
 
   * Support for load-time prolog error detection.
