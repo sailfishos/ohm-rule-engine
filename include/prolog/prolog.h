@@ -91,7 +91,7 @@ int                 prolog_vcall     (prolog_predicate_t *p, void *ret,
 #define             prolog_callarr prolog_acall
 
 int                 prolog_trace_set(char *commands);
-void                prolog_trace_show(void);
+void                prolog_trace_show(char *predicate);
 
 
 void                prolog_free_predicates(prolog_predicate_t *predicates);
