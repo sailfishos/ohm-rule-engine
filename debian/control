@@ -10,7 +10,7 @@ Architecture: any
 Section: libs
 Provides: libprolog
 Depends: ${shlibs:Depends}, swi-prolog
-XB-GIT-ID: 1b2ab90a5146c779f214b62aa6435c79d82a08e4
+XB-GIT-ID: ${Git-Id}
 Description: Prolog convenience library
  A prolog convenience library that supposedly makes embedding the
  SWI-prolog interpreter into applications easier.
@@ -19,7 +19,7 @@ Package: libprolog-dev
 Architecture: any
 Depends: libprolog0
 Section: libdevel
-XB-GIT-ID: 1b2ab90a5146c779f214b62aa6435c79d82a08e4
+XB-GIT-ID: ${Git-Id}
 Description: Development files for the prolog convenience library.
  .
  This package contains header files, libraries, pkg-config files, etc.
@@ -29,7 +29,7 @@ Package: prolog-extensions
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog, ohm
-XB-GIT-ID: 1b2ab90a5146c779f214b62aa6435c79d82a08e4
+XB-GIT-ID: ${Git-Id}
 Description: Prolog extensions for the Nokia policy framework
  A set of prolog extensions needed by the policy framework (and/or its
  prototype implementation).
@@ -38,6 +38,6 @@ Package: ohm-plugin-prolog
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, swi-prolog, prolog-extensions, ohm
-XB-GIT-ID: 1b2ab90a5146c779f214b62aa6435c79d82a08e4
+XB-GIT-ID: ${Git-Id}
 Description: A prolog-based OHM rule engine plugin.
  A prolog-based OHM rule engine plugin.
