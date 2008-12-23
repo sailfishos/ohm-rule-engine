@@ -45,7 +45,7 @@
 #define OBJECT_NAME   "name"
 
 #define NORMAL_QUERY_FLAGS (PL_Q_NORMAL | PL_Q_NODEBUG | PL_Q_CATCH_EXCEPTION)
-#define TRACE_QUERY_FLAGS (PL_Q_NORMAL | PL_Q_CATCH_EXCEPTION)
+#define TRACE_QUERY_FLAGS  (PL_Q_NORMAL | PL_Q_CATCH_EXCEPTION)
 
 
 enum {
@@ -348,10 +348,6 @@ load_file(char *path, int foreign)
      *     consult does not seem to fail or raise an exception on syntax
      *     errors, it simply prints an error message instead. Hence we
      *     fail to detect errors while loading native prolog files.
-     *
-     *     Hopefully we can find an acceptable way to detect syntax errors
-     *     and don't need to revert to ugly hacks like reading and parsing
-     *     our own output for errors.
      */
 
     frame = PL_open_foreign_frame();
@@ -369,7 +365,7 @@ load_file(char *path, int foreign)
     PL_close_query(qid);
 
     PL_discard_foreign_frame(frame);
-
+    
     DONE_LOADING();
     
     if (HAS_ERRORS())
