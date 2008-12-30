@@ -107,7 +107,7 @@ collect_objects(term_t item, int i, void *data)
         if ((object = ALLOC_ARRAY(char *, 3 * length + 1)) == NULL)
             return ENOMEM;
         
-        if ((err = swi_walk_list(item, collect_object, object)) != 0)
+        if ((err = swi_list_walk(item, collect_object, object)) != 0)
             return err;
     }
 
@@ -290,7 +290,7 @@ libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval)
             
         *objects++ = (char **)RESULT_OBJECTS;
         
-        if (swi_walk_list(pl_retval, collect_objects, objects)) {
+        if (swi_list_walk(pl_retval, collect_objects, objects)) {
             prolog_free_objects(objects);
             return EIO;
         }
@@ -310,7 +310,7 @@ libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval)
 /********************
  * prolog_free_objects
  ********************/
-void
+PROLOG_API void
 prolog_free_objects(char ***objects)
 {
     int i, p;
@@ -344,7 +344,7 @@ prolog_free_objects(char ***objects)
 /********************
  * prolog_dump_objects
  ********************/
-void
+PROLOG_API void
 prolog_dump_objects(char ***objects)
 {
     int   i, p, type;
@@ -392,7 +392,7 @@ prolog_dump_objects(char ***objects)
 /********************
  * prolog_dump_exception
  ********************/
-void
+PROLOG_API void
 prolog_dump_exception(char ***exception)
 {
     if (exception == NULL)
@@ -411,7 +411,7 @@ prolog_dump_exception(char ***exception)
 /********************
  * prolog_free_exception
  ********************/
-void
+PROLOG_API void
 prolog_free_exception(char ***exception)
 {
     if (exception == NULL)
@@ -431,7 +431,7 @@ prolog_free_exception(char ***exception)
 /********************
  * prolog_free_results
  ********************/
-void
+PROLOG_API void
 prolog_free_results(char ***results)
 {
     int tag;
@@ -452,7 +452,7 @@ prolog_free_results(char ***results)
 /********************
  * prolog_dump_results
  ********************/
-void
+PROLOG_API void
 prolog_dump_results(char ***results)
 {
     int tag;

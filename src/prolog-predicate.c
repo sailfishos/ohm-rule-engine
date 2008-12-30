@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/resource.h>
 
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
@@ -8,97 +9,6 @@
 #include <prolog/prolog.h>
 
 #include "libprolog.h"
-
-
-
-static int collect_exported(term_t pl_descriptor, int i, void *data);
-
-/*****************************************************************************
- *                        *** predicate discovery ***                        *
- *****************************************************************************/
-
-/********************
- * prolog_rules
- ********************/
-int
-prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
-{
-    predicate_t pr_rules = PL_predicate(PRED_RULES, 2, NULL);
-    fid_t       frame;
-    term_t      pl_args;
-    int         err, nrule, nundef;
-
-    if (!libprolog_initialized())
-        return ENOMEDIUM;
-
-    if (rules == NULL || undef == NULL)
-        return EINVAL;
-    
-    *rules = NULL;
-    *undef = NULL;
-    
-    frame   = PL_open_foreign_frame();
-    pl_args = PL_new_term_refs(2);
-
-    if (!PL_call_predicate(NULL, NORMAL_QUERY_FLAGS, pr_rules, pl_args))
-        return ENOENT;
-    
-    if ((nrule = swi_list_length(pl_args)) <= 0)
-        return ENOENT;
-
-    if ((nundef = swi_list_length(pl_args + 1)) < 0)
-        return EINVAL;
-    
-    if ((*rules = ALLOC_ARRAY(prolog_predicate_t, nrule + 1)) == NULL) {
-        err = ENOMEM;
-        goto fail;
-    }
- 
-    if ((err = swi_walk_list(pl_args, collect_exported, *rules)) != 0)
-        goto fail;
-
-    if (nundef > 0) {
-        if ((*undef = ALLOC_ARRAY(prolog_predicate_t, nundef + 1)) == NULL) {
-            err = ENOMEM;
-            goto fail;
-        }
-        if ((err = swi_walk_list(pl_args+1, collect_exported, *undef)) != 0)
-            goto fail;
-    }
-    
-    PL_discard_foreign_frame(frame);
-    
-    return 0;
-
- fail:
-    PL_discard_foreign_frame(frame);
-    if (rules)
-        prolog_free_predicates(*rules);
-    if (undef)
-        prolog_free_predicates(*undef);
-    *rules = *undef = NULL;
-    return err;
-}
-
-
-/********************
- * prolog_free_predicates
- ********************/
-void
-prolog_free_predicates(prolog_predicate_t *predicates)
-{
-    prolog_predicate_t *p;
-    
-    if (predicates == NULL)
-        return;
-    
-    for (p = predicates; p->name != NULL; p++) {
-        FREE(p->module);
-        FREE(p->name);
-    }
-
-    FREE(predicates);
-}
 
 
 /********************
@@ -178,21 +88,161 @@ collect_exported(term_t pl_descriptor, int i, void *data)
 }
 
 
+/********************
+ * prolog_rules
+ ********************/
+PROLOG_API int
+prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
+{
+    predicate_t pr_rules = PL_predicate(PRED_RULES, 2, NULL);
+    fid_t       frame;
+    term_t      pl_args;
+    int         err, nrule, nundef;
 
-/*****************************************************************************
- *                      *** prolog predicate invocation ***                  *
- *****************************************************************************/
+    if (!libprolog_initialized())
+        return ENOMEDIUM;
+
+    if (rules == NULL || undef == NULL)
+        return EINVAL;
+    
+    *rules = NULL;
+    *undef = NULL;
+    
+    frame   = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(2);
+
+    if (!PL_call_predicate(NULL, NORMAL_QUERY_FLAGS, pr_rules, pl_args))
+        return ENOENT;
+    
+    if ((nrule = swi_list_length(pl_args)) <= 0)
+        return ENOENT;
+
+    if ((nundef = swi_list_length(pl_args + 1)) < 0)
+        return EINVAL;
+    
+    if ((*rules = ALLOC_ARRAY(prolog_predicate_t, nrule + 1)) == NULL) {
+        err = ENOMEM;
+        goto fail;
+    }
+ 
+    if ((err = swi_list_walk(pl_args, collect_exported, *rules)) != 0)
+        goto fail;
+
+    if (nundef > 0) {
+        if ((*undef = ALLOC_ARRAY(prolog_predicate_t, nundef + 1)) == NULL) {
+            err = ENOMEM;
+            goto fail;
+        }
+        if ((err = swi_list_walk(pl_args+1, collect_exported, *undef)) != 0)
+            goto fail;
+    }
+    
+    PL_discard_foreign_frame(frame);
+    
+    return 0;
+
+ fail:
+    PL_discard_foreign_frame(frame);
+    if (rules)
+        prolog_free_predicates(*rules);
+    if (undef)
+        prolog_free_predicates(*undef);
+    *rules = *undef = NULL;
+    return err;
+}
+
+
+/********************
+ * prolog_free_predicates
+ ********************/
+PROLOG_API void
+prolog_free_predicates(prolog_predicate_t *predicates)
+{
+    prolog_predicate_t *p;
+    
+    if (predicates == NULL)
+        return;
+    
+    for (p = predicates; p->name != NULL; p++) {
+        FREE(p->module);
+        FREE(p->name);
+    }
+
+    FREE(predicates);
+}
+
+
+/********************
+ * prolog_statistics
+ ********************/
+PROLOG_API int
+prolog_statistics(prolog_predicate_t *pred,
+                  int *invocations, double *sys, double *usr, double *avg)
+{
+    if (invocations != NULL)
+        *invocations = pred->calls;
+    
+    if (sys != NULL)
+        *sys = pred->sys.tv_sec * 1000.0 + pred->sys.tv_usec / 1000.0;
+    
+    if (usr != NULL)
+        *usr = pred->usr.tv_sec * 1000.0 + pred->usr.tv_usec / 1000.0;
+    
+    if (avg != NULL) {
+        if (!pred->calls)
+            *avg = 0.0;
+        else {
+            *avg  = (pred->sys.tv_sec  + pred->usr.tv_sec)  * 1000.0;
+            *avg += (pred->sys.tv_usec + pred->usr.tv_usec) / 1000.0;
+            *avg /= pred->calls;
+        }
+    }
+    
+    return 0;
+}
+
+
+static inline struct timeval *
+timeval_sub(struct timeval *a, struct timeval *b, struct timeval *diff)
+{
+    diff->tv_sec = a->tv_sec - b->tv_sec;
+    if (a->tv_usec < b->tv_usec) {
+        diff->tv_sec--;
+        diff->tv_usec = 1000000 - b->tv_usec + a->tv_usec;
+    }
+    else
+        diff->tv_usec = a->tv_usec - b->tv_usec;
+
+    return diff;
+}
+
+
+static inline struct timeval *
+timeval_add(struct timeval *a, struct timeval *b, struct timeval *sum)
+{
+    sum->tv_sec  = a->tv_sec  + b->tv_sec;
+    sum->tv_usec = a->tv_usec + b->tv_usec;
+    
+    if (sum->tv_usec >= 1000000) {
+        sum->tv_sec++;
+        sum->tv_usec -= 1000000;
+    }
+    
+    return sum;
+}
+
 
 /********************
  * prolog_acall
  ********************/
-int
+PROLOG_API int
 prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
 {
     fid_t   frame;
     qid_t   qid;
     term_t  pl_args, pl_retval;
     int     i, a, type, flags, success;
+    struct rusage start, diff;
     
     if (narg < p->arity - 1)
         return FALSE;
@@ -223,21 +273,30 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     }
 
     if (libprolog_tracing()) {
-        libprolog_set_trace(TRUE);
+        swi_set_trace(TRUE);
 	flags = TRACE_QUERY_FLAGS;
     }
     else
         flags = NORMAL_QUERY_FLAGS;
 
     qid     = PL_open_query(NULL, flags, p->predicate, pl_args);
+    getrusage(RUSAGE_SELF, &start);
     success = PL_next_solution(qid);
+    getrusage(RUSAGE_SELF, &diff);
     if (libprolog_collect_result(qid, pl_retval, retval) != 0)
         success = FALSE;
+    else {
+        timeval_sub(&diff.ru_utime, &start.ru_utime, &diff.ru_utime);
+        timeval_sub(&diff.ru_stime, &start.ru_stime, &diff.ru_stime);
+        timeval_add(&p->usr, &diff.ru_utime, &p->usr);
+        timeval_add(&p->sys, &diff.ru_stime, &p->sys);
+        p->calls++;
+    }
     PL_close_query(qid);
     
  out:
     if (libprolog_tracing())
-        libprolog_set_trace(FALSE);
+        swi_set_trace(FALSE);
     
     PL_discard_foreign_frame(frame);
     
@@ -248,7 +307,7 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
 /********************
  * prolog_call
  ********************/
-int
+PROLOG_API int
 prolog_call(prolog_predicate_t *p, void *retval, ...)
 {
     va_list  ap;
@@ -290,7 +349,7 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
 /********************
  * prolog_vcall
  ********************/
-int
+PROLOG_API int
 prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
 {
     fid_t    frame;

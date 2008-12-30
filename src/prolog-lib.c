@@ -1,18 +1,12 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdarg.h>
 #include <errno.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 
-#include <glib.h>
-#include <glib-object.h>
-
-#include <prolog/prolog.h>
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
+
+#include <prolog/prolog.h>
 
 #include "libprolog.h"
 
@@ -20,16 +14,7 @@
 #  define PATH_MAX 256
 #endif
 
-#define PRED_EXPORTED "exported"
-#define PRED_RULES    "rules"
-
-#define LIBPROLOG     "libprolog.so"
-
-
-
-
-static char *shlib_path(char *lib, char *buf, size_t size);
-
+#define LIBPROLOG_SO "libprolog.so"
 
 
 static int  initialized = FALSE;
@@ -51,7 +36,11 @@ static char *pl_argv[] = {
 };
 
 
+static char *shlib_path(char *lib, char *buf, size_t size);
 static int   register_predicates (void);
+
+
+
 
 /*****************************************************************************
  *                      *** initialization & cleanup ***                     *
@@ -60,7 +49,7 @@ static int   register_predicates (void);
 /*************************
  * prolog_init
  *************************/
-int
+PROLOG_API int
 prolog_init(char *argv0,
             int lsize, int gsize, int tsize, int asize, char *bootfile)
 {
@@ -111,7 +100,7 @@ prolog_init(char *argv0,
     else
         argv = pl_argv + 2;                   /* skip { "-x", bootfile } */
     
-    argv[argc=0] = shlib_path(LIBPROLOG, libpl, sizeof(libpl));
+    argv[argc=0] = shlib_path(LIBPROLOG_SO, libpl, sizeof(libpl));
     
     if (bootfile != NULL) {
         pl_argv[++argc] = "-x";               /* must be argv[1] */
@@ -147,7 +136,7 @@ prolog_init(char *argv0,
 /*************************
  * prolog_exit
  *************************/
-void
+PROLOG_API void
 prolog_exit(void)
 {
     if (!initialized)
@@ -171,18 +160,32 @@ libprolog_initialized(void)
 }
 
 
+/********************
+ * register_predicates
+ ********************/
+static int
+register_predicates(void)
+{
+#define NON_TRACEABLE (PL_FA_VARARGS | PL_FA_NOTRACE)
+    
+    static PL_extension predicates[] = {
+        /* predicates for rule/predicate load-time error detection */
+        { "loading"        , 0, libpl_loading     , NON_TRACEABLE, },
+        { "mark_error"     , 0, libpl_mark_error  , NON_TRACEABLE, },
+        { "clear_errors"   , 0, libpl_clear_errors, NON_TRACEABLE, },
+        { "has_errors"     , 0, libpl_has_errors  , NON_TRACEABLE, },
+        /* predicates for rule/predicate tracing */
+        { "trace_predicate", 1, libpl_trace_pred  , NON_TRACEABLE, },
+        { "trace_predicate", 2, libpl_trace_pred  , NON_TRACEABLE, },
+        { "trace_config"   , 3, libpl_trace_config, NON_TRACEABLE, },
+        
+        { NULL, 0, NULL, 0 },
+    };
 
-/*****************************************************************************
- *                        *** action/object handling ***                     *
- *****************************************************************************/
+    PL_register_extensions_in_module("libprolog", predicates);
 
-
-
-
-/*****************************************************************************
- *                          *** misc, helper routines ***                    *
- *****************************************************************************/
-
+    return 0;
+}
 
 
 /********************
@@ -225,41 +228,6 @@ shlib_path(char *lib, char *buf, size_t bufsize)
     return lib;
 }
 
-
-
-
-
-/*****************************************************************************
- *                      *** built-in foreign predicates ***                  *
- *****************************************************************************/
-
-
-/********************
- * register_predicates
- ********************/
-static int
-register_predicates(void)
-{
-#define NON_TRACEABLE (PL_FA_VARARGS | PL_FA_NOTRACE)
-    
-    static PL_extension predicates[] = {
-        /* predicates for rule/predicate load-time error detection */
-        { "loading"        , 0, libpl_loading     , NON_TRACEABLE, },
-        { "mark_error"     , 0, libpl_mark_error  , NON_TRACEABLE, },
-        { "clear_errors"   , 0, libpl_clear_errors, NON_TRACEABLE, },
-        { "has_errors"     , 0, libpl_has_errors  , NON_TRACEABLE, },
-        /* predicates for rule/predicate tracing */
-        { "trace_predicate", 1, libpl_trace_pred  , NON_TRACEABLE, },
-        { "trace_predicate", 2, libpl_trace_pred  , NON_TRACEABLE, },
-        { "trace_config"   , 3, libpl_trace_config, NON_TRACEABLE, },
-        
-        { NULL, 0, NULL, 0 },
-    };
-
-    PL_register_extensions_in_module("libprolog", predicates);
-
-    return 0;
-}
 
 
 

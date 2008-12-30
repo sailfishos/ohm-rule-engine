@@ -87,12 +87,11 @@ swi_list_prepend(term_t list, term_t item)
 }
 
 
-
 /*************************
- * swi_walk_list
+ * swi_list_walk
  *************************/
 int
-swi_walk_list(term_t list,
+swi_list_walk(term_t list,
               int (*callback)(term_t item, int i, void *data), void *data)
 {
     term_t pl_list, pl_head;
@@ -106,6 +105,23 @@ swi_walk_list(term_t list,
     
     return err;
 }
+
+
+/*****************************************************************************
+ *                                                                           *
+ *****************************************************************************/
+
+/********************
+ * swi_set_trace
+ ********************/
+int
+swi_set_trace(int state)
+{
+    predicate_t pred = PL_predicate(state ? "trace" : "notrace", 0, NULL);
+
+    return PL_call_predicate(NULL, PL_Q_NORMAL, pred, 0);
+}
+
 
 
 

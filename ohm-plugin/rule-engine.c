@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/syscall.h>                             /* SYS_gettid */
+#include <sched.h>
 
 #include <glib.h>
 #include <gmodule.h>
@@ -20,9 +21,12 @@
 #define PLUGIN_VERSION "0.0.2"
 
 #define DEFAULT_STACK  16                            /* 16k stacks */
-
-#define STACK_LIMIT    16,16,16,16                   /* 16k stacks */
 #define NO_RULE        (-1)                          /* unknown rule */
+#define ALL_RULES      "all"
+#define MAX_NAME       64
+
+#define PRIO_BOOST() do { if (prio_boost) prio_boost(); } while (0)
+#define PRIO_RELAX() do { if (prio_relax) prio_relax(); } while (0)
 
 static int    discover_predicates(void);
 static void   free_predicates(void);
@@ -42,6 +46,9 @@ static int DBG_RULE;
 OHM_DEBUG_PLUGIN(rule_engine,
      OHM_DEBUG_FLAG("rules", "rule processing", &DBG_RULE));
 
+OHM_IMPORTABLE(int, prio_boost, (void));
+OHM_IMPORTABLE(int, prio_relax, (void));
+
 
 /*****************************************************************************
  *                       *** initialization & cleanup ***                    *
@@ -56,13 +63,22 @@ plugin_init(OhmPlugin *plugin)
     const char *param_extensions = ohm_plugin_get_param(plugin, "extensions");
     const char *param_rules      = ohm_plugin_get_param(plugin, "rules");
     const char *param_stack      = ohm_plugin_get_param(plugin, "stacksize");
-    
+    const char *param_priorize   = ohm_plugin_get_param(plugin, "priorize");
+
     char **extensions;
     char **rules;
     int    stack;
+    char *boost_sig, *relax_sig;
+    
+    
     
     if (!OHM_DEBUG_INIT(rule_engine))
         OHM_WARNING("rule engine failed to initialize debugging");
+    
+    
+    /*
+     * get configuration and set ourselves up
+     */
     
     extensions = get_extensions(param_extensions);
     rules      = get_rules(param_rules);
@@ -71,6 +87,33 @@ plugin_init(OhmPlugin *plugin)
     if (rules != NULL)
         if (setup(extensions, rules, stack) != 0)
             exit(1);
+    
+    
+    /*
+     * see if someone provides scheduling priority control methods
+     */
+
+    if (param_priorize == NULL ||
+        (strcasecmp(param_priorize, "yes") && strcasecmp(param_priorize, "on")))
+        return;
+
+    
+    boost_sig = (char *)prio_boost_SIGNATURE;
+    relax_sig = (char *)prio_relax_SIGNATURE;
+    ohm_module_find_method("prio_boost", &boost_sig, (void **)&prio_boost);
+    ohm_module_find_method("prio_relax", &boost_sig, (void **)&prio_relax);
+    
+    if (prio_boost || prio_relax) {
+        if (prio_boost == NULL || prio_relax == NULL) {
+            OHM_WARNING("Missing priority boost/relax method, disabling.");
+            prio_boost = NULL;
+            prio_relax = NULL;
+        }
+        else
+            OHM_INFO("rule-engine: priority control available.");
+    }
+    else
+        OHM_INFO("rule-engine: no priority control.");
 }
 
 
@@ -128,15 +171,25 @@ OHM_EXPORTABLE(int, find_rule, (char *name, int arity))
  ********************/
 OHM_EXPORTABLE(int, eval_rule, (int rule, void *retval, void **args, int narg))
 {
+    prolog_predicate_t *p;
+    int                 status;
+
     if (rule < 0 || rule >= npredicate) {
         OHM_ERROR("rule-engine: cannot evaluate non-existing rule #%d", rule);
         return ENOENT;
     }
     
-    OHM_DEBUG(DBG_RULE, "invoking rule #%d (%s/%d)", rule,
-              predicates[rule].name, predicates[rule].arity);
+    p = predicates + rule;
+
+    OHM_DEBUG(DBG_RULE, "invoking rule #%d (%s/%d)", rule, p->name, p->arity);
     
-    return prolog_acall(predicates + rule, retval, args, narg);
+    if (prio_boost)
+        prio_boost();
+    status = prolog_acall(p, retval, args, narg);
+    if (prio_relax)
+        prio_relax();
+
+    return status;
 }
 
 
@@ -177,6 +230,49 @@ OHM_EXPORTABLE(void, prompt, (void))
 OHM_EXPORTABLE(int, trace, (char *command))
 {
     return prolog_trace_set(command);
+}
+
+
+/********************
+ * statistics
+ ********************/
+OHM_EXPORTABLE(void, statistics, (char *command))
+{
+    prolog_predicate_t *pred;
+    char                name[MAX_NAME], *slash;
+    int                 arity, n, i;
+    double              avg;
+
+    if (command == NULL || !command[0] || !strcmp(command, ALL_RULES)) {
+        for (pred = predicates; pred->name; pred++) {
+            prolog_statistics(pred, &n, NULL, NULL, &avg);
+            OHM_INFO("%s/%d: %d calls, average speed: %.3f msec/call",
+                     pred->name, pred->arity, n, avg);
+        }
+    }
+    else {
+        if ((slash = strchr(command, '/')) != NULL) {
+            if ((n = (int)(slash - command)) > sizeof(name) - 1)
+                n = sizeof(name) - 1;
+            strncpy(name, command, n);
+            name[n] = '\0';
+            arity = strtoul(slash + 1, NULL, 10);
+        }
+        else {
+            n = sizeof(name) - 1;
+            strncpy(name, command, n);
+            name[n] = '\0';
+            arity = -1;
+        }
+        if ((i = find_rule(name, arity)) == NO_RULE)
+            OHM_INFO("Predicate %s/%d does not exist.", name, arity);
+        else {
+            pred = predicates + i;
+            prolog_statistics(pred, &n, NULL, NULL, &avg);
+            OHM_INFO("%s/%d: %d calls, average speed: %.3f msec/call",
+                     pred->name, pred->arity, n, avg);
+        }
+    }
 }
 
 
@@ -288,12 +384,6 @@ free_predicates(void)
 
 
 /********************
- * find_predicate
- ********************/
-
-
-
-/********************
  * get_extensions
  ********************/
 static char **
@@ -310,7 +400,7 @@ get_extensions(const char *param)
     
 
     /* XXX TODO
-     * implement support for parsing param to potentially multiple extensions
+     * implement parsing param to potentially multiple extensions
      */
 
     extensions[0] = (char *)param;
@@ -333,7 +423,7 @@ get_rules(const char *param)
     }
 
     /* XXX TODO
-     * implement support for parsing param to potentially multiple rule files
+     * implement parsing param to potentially multiple rule files
      */
 
     OHM_INFO("rule-engine: using prolog rules: %s", param);
@@ -382,7 +472,7 @@ OHM_PLUGIN_DESCRIPTION(PLUGIN_NAME, PLUGIN_VERSION,
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_PROVIDES_METHODS(rule_engine, 7,
+OHM_PLUGIN_PROVIDES_METHODS(rule_engine, 8,
     OHM_EXPORT(setup_rules, "setup"),
 
     OHM_EXPORT(find_rule,   "find"),
@@ -390,7 +480,8 @@ OHM_PLUGIN_PROVIDES_METHODS(rule_engine, 7,
     OHM_EXPORT(free_result, "free"),
     OHM_EXPORT(dump_result, "dump"),
     OHM_EXPORT(prompt     , "prompt"),
-    OHM_EXPORT(trace      , "trace")
+    OHM_EXPORT(trace      , "trace"),
+    OHM_EXPORT(statistics , "statistics")
 );
 
                             

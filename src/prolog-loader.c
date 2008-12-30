@@ -54,7 +54,6 @@ libprolog_load_done(void)
 
 
 
-
 /*****************************************************************************
  *                    *** ruleset & extension loading ***                    *
  *****************************************************************************/
@@ -72,10 +71,7 @@ load_file(char *path, int extension)
     term_t       pl_path;
     int          success;
 
-    if (!libprolog_initialized())
-        return ENOMEDIUM;
 
-    
     /*
      * load the given file (native prolog or foreign library)
      *
@@ -101,6 +97,9 @@ load_file(char *path, int extension)
      */
 
 
+    if (!libprolog_initialized())
+        return ENOMEDIUM;
+    
     libprolog_clear_errors();
     libprolog_load_start();
     
@@ -135,7 +134,7 @@ load_file(char *path, int extension)
 /*************************
  * prolog_load_file
  *************************/
-int
+PROLOG_API int
 prolog_load_file(char *path)
 {
     return load_file(path, FALSE);
@@ -145,11 +144,16 @@ prolog_load_file(char *path)
 /*************************
  * prolog_load_extension
  *************************/
-int
+PROLOG_API int
 prolog_load_extension(char *path)
 {
     return load_file(path, TRUE);
 }
+
+
+/*****************************************************************************
+ *                         *** foreign predicates ***                        *
+ *****************************************************************************/
 
 
 /********************

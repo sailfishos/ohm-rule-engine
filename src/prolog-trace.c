@@ -35,8 +35,6 @@ enum {
     PRED_PORT_DETAILED  = 0x2,          /* detailed information at this port */
 };
 
-
-
 typedef struct {
     int trace;                          /* predicate trace flags */
     int call;                           /* call port flags */
@@ -86,18 +84,6 @@ int
 libprolog_tracing(void)
 {
     return trace_enabled;
-}
-
-
-/********************
- * libprolog_set_trace
- ********************/
-int
-libprolog_set_trace(int state)
-{
-    predicate_t pred = PL_predicate(state ? "trace" : "notrace", 0, NULL);
-
-    return PL_call_predicate(NULL, PL_Q_NORMAL, pred, 0);
 }
 
 
@@ -441,7 +427,7 @@ predicate_trace_show(char *pred, pred_trace_t *pt, void *detailed)
 /********************
  * prolog_trace_set
  ********************/
-int
+PROLOG_API int
 prolog_trace_set(char *commands)
 {
 #define MAX_SIZE 1024
@@ -522,7 +508,7 @@ prolog_trace_set(char *commands)
 /********************
  * prolog_trace_show
  ********************/
-void
+PROLOG_API void
 prolog_trace_show(char *predicate)
 {
     if (trace_flags == NULL)
@@ -540,6 +526,11 @@ prolog_trace_show(char *predicate)
     else
         predicate_trace_show(predicate, NULL, (void *)0x1);
 }
+
+
+/*****************************************************************************
+ *                         *** foreign predicates ***                        *
+ *****************************************************************************/
 
 
 /********************
