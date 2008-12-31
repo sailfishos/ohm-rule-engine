@@ -140,7 +140,7 @@ enum {
 
 #if __GNUC__
 #  if HAVE_VISIBILITY_SUPPORT
-#    _Pragma("GCC visibility push(hidden)")
+#    pragma GCC visibility push(hidden)
 #    define PROLOG_API __attribute__ ((visibility("default")))
 #  else
 #    define PROLOG_API
