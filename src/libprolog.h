@@ -182,6 +182,7 @@ foreign_t libpl_has_errors(term_t noargs, int arity, void *context);
 
 /* prolog-object.c */
 int libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval);
+int libprolog_collect_exception(qid_t qid, void *retval);
 
 
 /* prolog-utils.c */

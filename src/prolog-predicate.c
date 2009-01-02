@@ -232,33 +232,61 @@ timeval_add(struct timeval *a, struct timeval *b, struct timeval *sum)
 }
 
 
+static int
+eval_predicate(int flags, prolog_predicate_t *pred, void *retval, term_t args)
+{
+    struct rusage start, diff;
+    qid_t         qid;
+    term_t        pl_retval = args + pred->arity - 1;
+    int           status;
+
+    qid    = PL_open_query(NULL, flags, pred->predicate, args);
+    getrusage(RUSAGE_SELF, &start);
+    status = PL_next_solution(qid);
+    getrusage(RUSAGE_SELF, &diff);
+
+    if (!status)
+        status = libprolog_collect_exception(qid, retval);
+    else
+        status = libprolog_collect_result(qid, pl_retval, retval);
+    PL_close_query(qid);
+
+    if (status > 0) {
+        timeval_sub(&diff.ru_utime, &start.ru_utime, &diff.ru_utime);
+        timeval_sub(&diff.ru_stime, &start.ru_stime, &diff.ru_stime);
+        timeval_add(&pred->usr, &diff.ru_utime, &pred->usr);
+        timeval_add(&pred->sys, &diff.ru_stime, &pred->sys);
+        pred->calls++;
+    }
+
+    return status;
+}
+
+
+
 /********************
  * prolog_acall
  ********************/
 PROLOG_API int
-prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
+prolog_acall(prolog_predicate_t *pred, void *retval, void **args, int narg)
 {
     fid_t   frame;
-    qid_t   qid;
-    term_t  pl_args, pl_retval;
-    int     i, a, type, flags, success;
-    struct rusage start, diff;
+    term_t  pl_args;
+    int     i, a, type, flags, status;
     
-    if (narg < p->arity - 1)
+    if (narg < pred->arity - 1)
         return FALSE;
-    else if (narg > p->arity - 1) {
+    else if (narg > pred->arity - 1) {
         PROLOG_WARNING("%s: ignoring extra %d parameter%s to %s",
                        __FUNCTION__,
-                       narg - p->arity - 1, narg - p->arity - 1 > 1 ? "s" : "",
-                       p->name);
+                       narg-pred->arity-1, narg-pred->arity-1 > 1 ? "s" : "",
+                       pred->name);
     }
     
-    frame = PL_open_foreign_frame();
-    
-    pl_args   = PL_new_term_refs(p->arity);
-    pl_retval = pl_args + p->arity - 1;
+    frame   = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(pred->arity);
 
-    for (i = 0, a = 0; i < p->arity - 1; i++) {
+    for (i = 0, a = 0; i < pred->arity - 1; i++) {
         type  = (int)args[a++];
         switch (type) {
         case 's': PL_put_atom_chars(pl_args + i, (char *)args[a++]); break;
@@ -267,7 +295,7 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
         default:
             PROLOG_ERROR("%s: invalid prolog argument type 0x%x",
                          __FUNCTION__, type);
-            success = FALSE;
+            status = -EINVAL;
             goto out;
         }
     }
@@ -279,28 +307,15 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
     else
         flags = NORMAL_QUERY_FLAGS;
 
-    qid     = PL_open_query(NULL, flags, p->predicate, pl_args);
-    getrusage(RUSAGE_SELF, &start);
-    success = PL_next_solution(qid);
-    getrusage(RUSAGE_SELF, &diff);
-    if (libprolog_collect_result(qid, pl_retval, retval) != 0)
-        success = FALSE;
-    else {
-        timeval_sub(&diff.ru_utime, &start.ru_utime, &diff.ru_utime);
-        timeval_sub(&diff.ru_stime, &start.ru_stime, &diff.ru_stime);
-        timeval_add(&p->usr, &diff.ru_utime, &p->usr);
-        timeval_add(&p->sys, &diff.ru_stime, &p->sys);
-        p->calls++;
-    }
-    PL_close_query(qid);
-    
- out:
+    status = eval_predicate(flags, pred, retval, pl_args);
+
     if (libprolog_tracing())
         swi_set_trace(FALSE);
-    
+
+ out:
     PL_discard_foreign_frame(frame);
     
-    return success;
+    return status;
 } 
 
 
@@ -308,41 +323,34 @@ prolog_acall(prolog_predicate_t *p, void *retval, void **args, int narg)
  * prolog_call
  ********************/
 PROLOG_API int
-prolog_call(prolog_predicate_t *p, void *retval, ...)
+prolog_call(prolog_predicate_t *pred, void *retval, ...)
 {
     va_list  ap;
     fid_t    frame;
-    qid_t    qid;
-    term_t   pl_args, pl_retval;
+    term_t   pl_args;
     char    *arg;
-    int      i, success;
+    int      i, status;
 
     
-    frame = PL_open_foreign_frame();
-    
-    pl_args   = PL_new_term_refs(p->arity);
-    pl_retval = pl_args + p->arity - 1;
+    frame   = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(pred->arity);
 
     /*
      * XXX TODO: add argument type processing similar to prolog_acall
      */
 
     va_start(ap, retval);
-    for (i = 0; i < p->arity - 1; i++) {
+    for (i = 0; i < pred->arity - 1; i++) {
         arg = va_arg(ap, char *);
         PL_put_atom_chars(pl_args + i, arg);
     }
     va_end(ap);
 
-    qid     = PL_open_query(NULL, NORMAL_QUERY_FLAGS, p->predicate, pl_args);
-    success = PL_next_solution(qid);
-    if (libprolog_collect_result(qid, pl_retval, retval) != 0)
-        success = FALSE;
-    PL_close_query(qid);
+    status = eval_predicate(NORMAL_QUERY_FLAGS, pred, retval, pl_args);
 
     PL_discard_foreign_frame(frame);
     
-    return success;
+    return status;
 } 
 
 
@@ -350,38 +358,31 @@ prolog_call(prolog_predicate_t *p, void *retval, ...)
  * prolog_vcall
  ********************/
 PROLOG_API int
-prolog_vcall(prolog_predicate_t *p, void *retval, va_list ap)
+prolog_vcall(prolog_predicate_t *pred, void *retval, va_list ap)
 {
-    fid_t    frame;
-    qid_t    qid;
-    term_t   pl_args, pl_retval;
-    char    *arg;
-    int      i, success;
+    fid_t   frame;
+    term_t  pl_args;
+    char   *arg;
+    int     i, status;
 
     
-    frame = PL_open_foreign_frame();
-    
-    pl_args   = PL_new_term_refs(p->arity);
-    pl_retval = pl_args + p->arity - 1;
+    frame   = PL_open_foreign_frame();
+    pl_args = PL_new_term_refs(pred->arity);
 
     /*
      * XXX TODO: add argument type processing similar to prolog_acall
      */
 
-    for (i = 0; i < p->arity - 1; i++) {
+    for (i = 0; i < pred->arity - 1; i++) {
         arg = va_arg(ap, char *);
         PL_put_atom_chars(pl_args + i, arg);
     }
 
-    qid     = PL_open_query(NULL, NORMAL_QUERY_FLAGS, p->predicate, pl_args);
-    success = PL_next_solution(qid);
-    if (libprolog_collect_result(qid, pl_retval, retval) != 0)
-        success = FALSE;
-    PL_close_query(qid);
-    
+    status = eval_predicate(NORMAL_QUERY_FLAGS, pred, retval, pl_args);
+
     PL_discard_foreign_frame(frame);
     
-    return success;
+    return status;
 } 
 
 

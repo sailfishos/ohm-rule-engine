@@ -117,144 +117,52 @@ collect_objects(term_t item, int i, void *data)
 
 
 /********************
- * parse_exception
+ * libprolog_collect_exception
  ********************/
-static char *
-parse_exception(term_t pl_exception)
+int
+libprolog_collect_exception(qid_t qid, void *retval)
 {
+    char   ***objects;
+    term_t    pl_error;
+    char     *error;
+
 
     /*
-     * The documentation says:
+     * collect exception if any
      *
-     * Built-in predicates generate exceptions using a term
-     * error(Formal, Context). The first argument is the `formal'
-     * description of the error, specifying the class and generic
-     * defined context information. When applicable, the ISO error-term
-     * definition is used. The second part describes some additional
-     * context to help the programmer while debugging. In its most generic
-     * form this is a term of the form context(Name/Arity, Message), where
-     * Name/Arity describes the built-in predicate that raised the error,
-     * and Message provides an additional description of the error. Any
-     * part of this structure may be a variable if no information was present.
+     * Notes: Currently we simply convert the exception term to a string
+     *     using write/1 instead of going into the trouble of parsing it
+     *     to an exception type/class and additional details. We return
+     *     FALSE if there was no exception (ie. the query qid simply failed)
+     *     and -EINVAL if there was an exception.
+     *
+     *     Ideally we would need to parse the exception to an error type +
+     *     additional details and store those in the exception object.
      */
-
-#define FAIL(fmt, args...) do { APPEND(fmt, ## args); goto out; } while (0)
-
-#define APPEND(fmt, args...) do {                       \
-        n     = snprintf(ep, left, fmt, ## args);       \
-        ep   += n;                                      \
-        left -= n;                                      \
-    } while (0)
-
-    fid_t  frame;
-    term_t pl_terms, pl_formal, pl_context, pl_type, pl_kind, pl_what;
     
-    char exception[1024], *ep, *s;
-    int  size, left, n, arity, i;
+
+    *(char ***)retval = NULL;
+    error             = NULL;
     
+    if ((pl_error = PL_exception(qid)) == 0)
+        return FALSE;
     
-    frame      = PL_open_foreign_frame();
-    pl_terms   = PL_new_term_refs(5);
-
-    i = 0;
-    pl_formal  = pl_terms + i++;
-    pl_context = pl_terms + i++;
-    pl_type    = pl_terms + i++;
-    pl_kind    = pl_terms + i++;
-    pl_what    = pl_terms + i++;
-    
-    PL_get_arg(1, pl_exception, pl_formal);
-    PL_get_arg(2, pl_exception, pl_context);
-    
-    ep   = exception;
-    size = 0;
-    left = sizeof(exception) - 1;
-
-    if (PL_is_compound(pl_formal)) {
-        /* eg: error(existence_error(procedure, foo/3), context(...)) */
-        /* eg: error(type(kind, what), context(...)) */
-        PL_get_name_arity(pl_formal, &pl_type, &arity);
-        APPEND("%s", PL_atom_chars(pl_type));
-
-        if (arity != 2)
-            FAIL(" (unknown details)");
-        
-        PL_get_arg(1, pl_formal, pl_kind);
-        if (!PL_get_chars(pl_kind, &s, CVT_WRITE | BUF_DISCARDABLE))
-            FAIL(" (details in unknown format)");
-        APPEND(": %s", s);
-        
-        PL_get_arg(2, pl_formal, pl_what);
-        if (PL_is_atomic(pl_what)) {
-            PL_get_chars(pl_what, &s, CVT_ALL | BUF_DISCARDABLE);
-            APPEND(", %s", s);
-        }
-        else if (PL_is_compound(pl_what)) {
-            PL_get_chars(pl_what, &s, CVT_WRITE | BUF_DISCARDABLE);
-            APPEND(", %s", s);
-        }
-        else
-            FAIL(" (details in unknown format)");
-    }
-    else
-        FAIL("unknown prolog exception");
-    
- out:
-    PL_discard_foreign_frame(frame);
-
-    
-    return STRDUP(exception);
-}
-
-
-/********************
- * collect_exception
- ********************/
-static int
-collect_exception(qid_t qid, void *retval)
-{
-    char       ***objects;
-    term_t        pl_error;
-    atom_t        pl_name;
-    int           arity;
-    const char   *name;
-    char         *error;
-
-    if ((pl_error = PL_exception(qid)) == 0) {
-        *(char **)retval = NULL;
-        return 0;
-    }
-
-#if 0
-    error = NULL;
     PL_get_chars(pl_error, &error, CVT_WRITE | BUF_DISCARDABLE);
-    printf("*** write(exception): \"%s\" ***\n", error ? error : "<unknown>");
-#endif
 
-    if (!PL_is_compound(pl_error) ||
-        !PL_get_name_arity(pl_error, &pl_name, &arity))
-        return EINVAL;
-    
-    if ((name = PL_atom_chars(pl_name)) == NULL)
-        return EINVAL;
-
-    if (arity == 2 && !strcmp(name, "error"))
-        error = parse_exception(pl_error);
+    if (error && error[0])
+        error = STRDUP(error);
     else
         error = STRDUP("unknown prolog exception");
     
-    printf("*** prolog exception '%s'\n", error);
+    if ((objects = ALLOC_ARRAY(char **, 1 + 1 + 1)) != NULL) {
+        objects[0] = (char **)RESULT_EXCEPTION;
+        objects[1] = (char **)error;
+        objects[2] = NULL;
 
-    if ((objects = ALLOC_ARRAY(char **, 1 + 1 + 1)) == NULL)
-        return ENOMEM;
-
-    objects[0] = (char **)RESULT_EXCEPTION;
-    objects[1] = (char **)error;
-    objects[2] = NULL;
-
-    *(char ****)retval = objects + 1;
-
-    return (objects[1] != NULL ? 0 : ENOMEM);
+        *(char ****)retval = objects + 1;
+    }
+    
+    return -EINVAL;
 }
 
 
@@ -265,17 +173,13 @@ int
 libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval)
 {
     char ***objects;
-    int      n;
+    int     n;
 
-
-    if (PL_exception(qid) != 0)
-        return collect_exception(qid, retval);
+    *(void **)retval = NULL;
 
     switch (PL_term_type(pl_retval)) {
-        
     case PL_VARIABLE:                /* XXX hmm... isn't this an error ? */
-        *(void **)retval = NULL;
-        return 0;
+        return TRUE;
         
     case PL_ATOM:                                    /* [] is an atom... */
     case PL_TERM:
@@ -283,26 +187,26 @@ libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval)
             goto invalid;
         
         if ((n = swi_list_length(pl_retval)) < 0)
-            return EIO;
+            return -EIO;
             
         if ((objects = ALLOC_ARRAY(char **, 1 + n + 1)) == NULL)
-            return ENOMEM;
+            return -ENOMEM;
             
         *objects++ = (char **)RESULT_OBJECTS;
         
         if (swi_list_walk(pl_retval, collect_objects, objects)) {
             prolog_free_objects(objects);
-            return EIO;
+            return -EIO;
         }
             
         *(char ****)retval = objects;
-        return 0;
+        return TRUE;
         
     invalid:
     default:
         PROLOG_WARNING("%s: cannot handle non-list term type %d", __FUNCTION__,
                        PL_term_type(pl_retval));
-        return EINVAL;
+        return -EINVAL;
     }
 }
 
