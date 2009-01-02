@@ -1,3 +1,13 @@
+libprolog (0.0.8) unstable; urgency=low
+
+  * Changed predicate evaluation return values to support (silent) failure.
+  * Added per-predicate statistic collection.
+  * Added configure option to enable profiling, gcc visibility-hiding test.
+  * Fixed a few prolog extension typos/thinkos.
+  * Rule tracing improvements and fixes.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Fri, 02 Jan 2009 19:04:15 +0200
+
 libprolog (0.0.7) unstable; urgency=low
 
   * Handle lack of and multiple initializations.
