@@ -2,16 +2,16 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT(prolog, 0.0.1)
+AC_INIT(prolog, 0.0.8)
 AC_CONFIG_SRCDIR(src)
 DOC_SUPPORT_INIT()
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADER([src/config.h])
 
-# libtool
-LT_CURRENT=2
+# Libtool versioning (not used) support.
+LT_CURRENT=0
 LT_REVISION=0
-LT_AGE=0
+LT_AGE=8
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
 AC_SUBST(LT_AGE)
@@ -19,7 +19,7 @@ AC_SUBST(LT_AGE)
 # Disable static libraries.
 AC_DISABLE_STATIC
 
-# Checks for programs.
+# Checks for programs we need.
 AC_PROG_CC
 AC_PROG_INSTALL
 AM_PROG_CC_C_O
@@ -34,12 +34,12 @@ AC_C_INLINE
 AC_TYPE_SIZE_T
 AC_HEADER_TIME
 
-# Enable extra GCC flags.
+# If compiling with GCC, enable lost of warnings.
 if test "$GCC" = "yes"; then
     CPPFLAGS="$CPPFLAGS -Wall -Wformat"
 fi
 
-# Extra compilation warnings.
+# If compiling with GCC and requested, enable even more warnings.
 AC_ARG_ENABLE(extra-warnings,
               [  --enable-extra-warnings enable extra compilation warnings],
               enable_extra_warnings=$enableval,enable_extra_warnings=no)
@@ -58,6 +58,15 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([gettimeofday memset putenv strdup strtoul])
+
+# Check for Check (unit test framework).
+PKG_CHECK_MODULES(CHECK, 
+                  check >= 0.9.4,
+                  [has_check="yes"], [has_check="no"])
+AM_CONDITIONAL(HAVE_CHECK, test "x$has_check" = "xyes")
+if test "x$has_check" = "xno"; then
+  AC_MSG_WARN([Check framework not found, unit tests are DISABLED.])
+fi
 
 # Checks for glib and gobject.
 PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
@@ -83,7 +92,7 @@ PKG_CHECK_MODULES(LIBOHMFACT, libohmfact)
 AC_SUBST(LIBOHMFACT_CFLAGS)
 AC_SUBST(LIBOHMFACT_LIBS)
 
-# OHM build compatibility variables.
+# For the OHM plugin, mimick the OHM build variables.
 AC_SUBST(OHM_PLUGIN_CFLAGS, "$LIBOHMPLUGIN_CFLAGS $LIBOHMFACT_CFLAGS $GLIB_CFLAGS $DBUS_CFLAGS $GMODULE_CFLAGS")
 AC_SUBST(OHM_PLUGIN_LIBS, "$LIBOHMPLUGIN_LIBS $LIBOHMFACT_LIBS $GLIB_LIBS $DBUS_LIBS $GMODULE_LIBS")
 
@@ -95,7 +104,7 @@ AC_SUBST(OHM_PLUGIN_DIR, "\$(libdir)/ohm")
 AC_CHECK_CCOPT_VISIBILITY
 AC_SUBST(CCOPT_VISIBILITY_HIDDEN)
 
-# Profiling support (using gprof).
+# Check for profiling support (using gprof).
 AC_ARG_ENABLE(gprof,
               [  --enable-gprof       enable profiling with gprof],
               enable_gprof=$enableval,enable_gprof=no)
@@ -108,7 +117,7 @@ else
     AC_MSG_RESULT(no)
 fi
 
-# SWI Prolog support.
+# Check for SWI-Prolog support.
 AC_ARG_WITH(prolog, [  --with-prolog=<SWI prolog binary>   where the SWI prolog main binary is installed])
 
 if test -z "$with_prolog" ; then
@@ -142,14 +151,13 @@ AC_SUBST(PROLOG_LIBS)
 AC_SUBST(PROLOG_CFLAGS)
 AC_SUBST(PROLOG_HOME)
 
-
-
+# Generate these files.
 AC_CONFIG_FILES([Makefile
                  src/Makefile
 		 libprolog.pc
 		 include/Makefile
 		 extensions/Makefile
 		 ohm-plugin/Makefile
-		 test/Makefile
+		 tests/Makefile
 		 doc/Makefile])
 AC_OUTPUT

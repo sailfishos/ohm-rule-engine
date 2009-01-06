@@ -98,7 +98,7 @@ load_file(char *path, int extension)
 
 
     if (!libprolog_initialized())
-        return ENOMEDIUM;
+        return FALSE;
     
     libprolog_clear_errors();
     libprolog_load_start();
