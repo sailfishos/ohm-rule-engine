@@ -26,12 +26,12 @@ main(int argc, char *argv[])
     char               **files;
     int                  nfile = sizeof(default_files)/sizeof(default_files[0]);
 
-    prolog_predicate_t   *predicates, *p, *set_routes;
+    prolog_predicate_t   *predicates, *undef, *p, *set_routes;
     char               ***actions;
     int                   i;
 
     /* initialize our prolog library */
-    if (prolog_init("test", 0, 0, 0, 0) != 0)
+    if (prolog_init("test", 0, 0, 0, 0, NULL) != 0)
         fatal(1, "failed to initialize prolog library");
 
     if (argc <= 1)
@@ -48,7 +48,7 @@ main(int argc, char *argv[])
             fatal(2, "failed to load %s", files[i]);
     }
     
-    if ((predicates = prolog_predicates(NULL)) == NULL)
+    if (prolog_rules(&predicates, &undef) != 0)
         fatal(3, "failed to get exported predicates from prolog");
 
     set_routes = NULL;
@@ -68,7 +68,7 @@ main(int argc, char *argv[])
     if (!prolog_call(set_routes, &actions))
         fatal(5, "failed to invoke exported predicate %s", set_routes->name);
     
-    prolog_dump_actions(actions);
+    prolog_dump_results(actions);
 
     /* clean up our prolog library */
     prolog_exit();

@@ -1,6 +1,6 @@
 INCLUDES = -I../include @PROLOG_CFLAGS@
 
-noinst_PROGRAMS = prologtest facttest
+noinst_PROGRAMS = prologtest #facttest
 
 prologtest_SOURCES = prologtest.c
 prologtest_LDADD = ../src/libprolog.la @PROLOG_LIBS@
