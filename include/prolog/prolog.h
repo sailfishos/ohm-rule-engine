@@ -32,6 +32,7 @@ typedef struct {
 
 int  prolog_init(char *argv0, int, int, int, int, char *bootfile);
 void prolog_exit(void);
+int  prolog_set_helper(const char *path);
 
 int  prolog_load_extension(char *path);
 int  prolog_load_file     (char *path);

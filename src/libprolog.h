@@ -1,6 +1,17 @@
 #ifndef __LIBPROLOG_H__
 #define __LIBPROLOG_H__
 
+/*
+ * prolog glue path
+ */
+
+#define LIBPROLOG_SO "libprolog.so"
+
+#ifndef LIBPROLOG_HELPER
+#  define LIBPROLOG_HELPER "/usr/share/libprolog/libprolog.pl"
+#endif
+
+
 
 /*
  * prolog shell commands
@@ -170,6 +181,7 @@ foreign_t libpl_trace_config(term_t pl_args, int arity, void *context);
 
 
 /* prolog-loader.c */
+int  libprolog_load_file(char *path, int extension);
 void libprolog_clear_errors(void);
 int  libprolog_has_errors(void);
 void libprolog_mark_error(void);

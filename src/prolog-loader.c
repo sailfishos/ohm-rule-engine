@@ -59,10 +59,10 @@ libprolog_load_done(void)
  *****************************************************************************/
 
 /*************************
- * load_file
+ * libprolog_load_file
  *************************/
-static int
-load_file(char *path, int extension)
+int
+libprolog_load_file(char *path, int extension)
 {
     char        *loader = extension ? "load_foreign_library" : "consult";
     predicate_t  pr_loader;
@@ -97,9 +97,6 @@ load_file(char *path, int extension)
      */
 
 
-    if (!libprolog_initialized())
-        return FALSE;
-    
     libprolog_clear_errors();
     libprolog_load_start();
     
@@ -137,7 +134,10 @@ load_file(char *path, int extension)
 PROLOG_API int
 prolog_load_file(char *path)
 {
-    return load_file(path, FALSE);
+    if (!libprolog_initialized())
+        return FALSE;
+    else
+        return libprolog_load_file(path, FALSE);
 }
 
 
@@ -147,7 +147,10 @@ prolog_load_file(char *path)
 PROLOG_API int
 prolog_load_extension(char *path)
 {
-    return load_file(path, TRUE);
+    if (!libprolog_initialized())
+        return FALSE;
+    else
+        return libprolog_load_file(path, TRUE);
 }
 
 

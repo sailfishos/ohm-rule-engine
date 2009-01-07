@@ -2,6 +2,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
@@ -14,11 +17,10 @@
 #  define PATH_MAX 256
 #endif
 
-#define LIBPROLOG_SO "libprolog.so"
-
+static char libprolog_pl[PATH_MAX] = LIBPROLOG_HELPER;
+static char libprolog_so[PATH_MAX];
 
 static int  initialized = FALSE;
-static char libpl[PATH_MAX];
 static char lstack[16], gstack[16], tstack[16], astack[16];
 
 static char *pl_argv[] = {
@@ -36,6 +38,7 @@ static char *pl_argv[] = {
 };
 
 
+
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   register_predicates (void);
 
@@ -45,6 +48,27 @@ static int   register_predicates (void);
 /*****************************************************************************
  *                      *** initialization & cleanup ***                     *
  *****************************************************************************/
+
+/********************
+ * prolog_set_helper
+ ********************/
+PROLOG_API int
+prolog_set_helper(const char *path)
+{
+    struct stat st;
+
+    if (initialized)
+        return EBUSY;
+    
+    strncpy(libprolog_pl, path, sizeof(libprolog_pl));
+    libprolog_pl[sizeof(libprolog_pl) - 1] = '\0';
+
+    if (stat(libprolog_pl, &st) != 0)
+        return errno;
+    else
+        return 0;
+}
+
 
 /*************************
  * prolog_init
@@ -100,7 +124,7 @@ prolog_init(char *argv0,
     else
         argv = pl_argv + 2;                   /* skip { "-x", bootfile } */
     
-    argv[argc=0] = shlib_path(LIBPROLOG_SO, libpl, sizeof(libpl));
+    argv[argc=0] = shlib_path(LIBPROLOG_SO, libprolog_so, sizeof(libprolog_so));
     
     if (bootfile != NULL) {
         pl_argv[++argc] = "-x";               /* must be argv[1] */
@@ -125,10 +149,18 @@ prolog_init(char *argv0,
         PL_cleanup(0);
         return EINVAL;
     }
+
+    /* libprolog.pl assumed to be part of boot file, otherwise load it */
+    if (bootfile == NULL) {
+        if (!libprolog_load_file(libprolog_pl, FALSE)) {
+            PL_cleanup(0);
+            return EINVAL;
+        }
+    }
     
     initialized = TRUE;
     return status;
-
+    
     (void)argv0;
 }
 
