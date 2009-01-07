@@ -1,39 +1,63 @@
+#include <stdio.h>
+#include <prolog/prolog.h>
 #include <check.h>
+
 #include "check-libprolog.h"
 
+
+static SRunner *srunner;
 
 static Suite *
 chkprolog_suite(void)
 {
     Suite *suite;
-    TCase *tc_init, *tc_pred;
 
-    suite   = suite_create("libprolog");
-    tc_init = chkprolog_init_tests();
-    tc_pred = chkprolog_pred_tests();
+    suite = suite_create("libprolog");
 
-    suite_add_tcase(suite, tc_init);
-    suite_add_tcase(suite, tc_pred);
-
+    chkprolog_init_tests(suite);
+    chkprolog_pred_tests(suite);
+    
     return suite;
 }
 
 
 
+SRunner *
+chkprolog_srunner(void)
+{
+    return srunner;
+}
+
+
+int
+chkprolog_fork_status(void)
+{
+    if (srunner)
+        return srunner_fork_status(srunner);
+    else
+        return -1;
+}
+
+
 int
 main(int argc, char *argv[])
 {
-    Suite   *s;
-    SRunner *sr;
+    Suite *suite;
     int    nfailed;
-    
-    s  = chkprolog_suite();
-    sr = srunner_create(s);
-    
-    srunner_run_all(sr, CK_ENV);
-    nfailed = srunner_ntests_failed(sr);
 
-    srunner_free(sr);
+    if (prolog_set_helper("../src/libprolog.pl") != 0 &&
+        prolog_set_helper("../../src/libprolog.pl") != 0) {
+        fprintf(stderr, "Unable to find .../src/libprolog.pl");
+        exit(1);
+    }
+    
+    suite   = chkprolog_suite();
+    srunner = srunner_create(suite);
+    
+    srunner_run_all(srunner, CK_ENV);
+    nfailed = srunner_ntests_failed(srunner);
+
+    srunner_free(srunner);
     
     return nfailed == 0 ? 0 : 1;
 }

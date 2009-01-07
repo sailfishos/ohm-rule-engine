@@ -6,10 +6,6 @@ endif
 
 noinst_PROGRAMS = check-libprolog
 
-prologtest_SOURCES = prologtest.c
-prologtest_LDADD = ../src/libprolog.la @PROLOG_LIBS@
-
-
 check_libprolog_SOURCES = check-libprolog.c \
 			  check-libprolog-init.c \
 			  check-libprolog-predicate.c

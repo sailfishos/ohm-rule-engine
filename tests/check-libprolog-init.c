@@ -8,6 +8,8 @@
 #include <prolog/prolog.h>
 
 #define PL_DUMMY_FILE "./.a-test-file.pl"
+#define PL_ERROR_FILE "./syntax-error.pl"
+#define PL_OK_FILE    "./syntax-ok.pl"
 
 
 START_TEST(missing_init)
@@ -28,13 +30,10 @@ START_TEST(multiple_init)
 END_TEST
 
 
-
 START_TEST(non_existing)
 {
-
     fail_unless(prolog_init("check-libprolog", 0, 0, 0, 0, NULL) == 0,
                 "prolog_init failed");
-    
     unlink(PL_DUMMY_FILE);
     fail_unless(!prolog_load_file(PL_DUMMY_FILE),
                 "prolog_load_file should fail for non-existing files");
@@ -53,29 +52,49 @@ START_TEST(non_readable)
                 "prolog_init failed");
     fail_unless(!prolog_load_file(PL_DUMMY_FILE),
                 "prolog_load_file should fail for non-readable files");
+
     close(fd);
     unlink(PL_DUMMY_FILE);
 }
 END_TEST
 
 
-TCase *
-chkprolog_init_tests(void)
+START_TEST(syntax_error)
+{
+    fail_unless(prolog_init("check-libprolog", 0, 0, 0, 0, NULL) == 0,
+                "prolog_init failed");
+    fail_unless(!prolog_load_file(PL_ERROR_FILE),
+                "prolog_load_file should fail for syntax errors");
+}
+END_TEST
+
+
+START_TEST(syntax_ok)
+{
+    fail_unless(prolog_init("check-libprolog", 0, 0, 0, 0, NULL) == 0,
+                "prolog_init failed");
+    fail_unless(prolog_load_file(PL_OK_FILE),
+                "prolog_load_file failed for %s", PL_OK_FILE);
+}
+END_TEST
+
+
+void
+chkprolog_init_tests(Suite *suite)
 {
     TCase *tc;
 
     tc = tcase_create("initalization");
     tcase_add_test(tc, missing_init);
     tcase_add_test(tc, multiple_init);
+    suite_add_tcase(suite, tc);
+
+    tc = tcase_create("loading");
     tcase_add_test(tc, non_existing);
     tcase_add_test(tc, non_readable);
-#if 0 
     tcase_add_test(tc, syntax_error);
     tcase_add_test(tc, syntax_ok);
-    tcase_add_test(tc, multiple_init);
-#endif
-    
-    return tc;
+    suite_add_tcase(suite, tc);    
 }
 
 
