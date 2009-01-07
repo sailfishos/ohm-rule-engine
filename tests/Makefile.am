@@ -1,10 +1,9 @@
 if HAVE_CHECK
 TESTS = check-libprolog
+noinst_PROGRAMS = check-libprolog
 else
 TESTS =
 endif
-
-noinst_PROGRAMS = check-libprolog
 
 check_libprolog_SOURCES = check-libprolog.c \
 			  check-libprolog-init.c \
