@@ -60,6 +60,7 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %files
 %defattr(-,root,root,-)
 %{_libdir}/*
+%{_datadir}/libprolog
 
 %files devel
 %defattr(-,root,root,-)
