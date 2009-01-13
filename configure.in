@@ -137,8 +137,8 @@ fi
 
 PLDUMP="$PLBIN -dump-runtime-variables"
 PLDIR=$(eval `$PLDUMP`; echo $PLBASE)
-PLARCH=$(eval `$PLDUMP`; echo $$LARCH)
-PLLIBS=$(eval `$PLDUMP`; echo $PLLIBS $PLDIR/lib/$PLARCH/libpl.a)
+PLARCH=$(eval `$PLDUMP`; echo $PLARCH)
+PLLIBS=$(eval `$PLDUMP`; echo -L$PLBASE/lib/$PLARCH $PLLIBS)
 
 PLCFLAGS=$(eval `$PLDUMP`; echo $PLCFLAGS -I$PLDIR/include)
 PLLDFLAGS=$(eval `$PLDUMP`; echo $PLLDFLAGS)
