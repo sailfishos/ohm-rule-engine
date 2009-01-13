@@ -3,7 +3,7 @@ Section: libs
 Priority: optional
 Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
 Standards-Version: 3.8.0
-Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog, ohm-dev, libglib2.0-dev, libdbus-1-dev, libdbus-glib-1-dev, libtrace-dev, libncurses5-dev
+Build-Depends: cdbs, debhelper (>= 4.1.0), swi-prolog-dev, ohm-dev, libglib2.0-dev, libdbus-1-dev, libdbus-glib-1-dev, libtrace-dev, libncurses5-dev
 
 Package: libprolog0
 Architecture: any
@@ -17,7 +17,7 @@ Description: Prolog convenience library
 
 Package: libprolog-dev
 Architecture: any
-Depends: libprolog0
+Depends: libprolog0, swi-prolog-dev
 Section: libdevel
 XB-GIT-ID: ${Git-Id}
 Description: Development files for the prolog convenience library.
