@@ -5,6 +5,8 @@
 
 void chkprolog_init_tests(Suite *suite);
 void chkprolog_pred_tests(Suite *suite);
+void chkprolog_leak_tests(Suite *suite);
+
 int  chkprolog_fork_status(void);
 
 SRunner *chkprolog_srunner(void);

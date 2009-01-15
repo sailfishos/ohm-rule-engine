@@ -16,6 +16,7 @@ chkprolog_suite(void)
 
     chkprolog_init_tests(suite);
     chkprolog_pred_tests(suite);
+    chkprolog_leak_tests(suite);
     
     return suite;
 }

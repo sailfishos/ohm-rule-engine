@@ -5,9 +5,10 @@ else
 TESTS =
 endif
 
-check_libprolog_SOURCES = check-libprolog.c \
-			  check-libprolog-init.c \
-			  check-libprolog-predicate.c
+check_libprolog_SOURCES = check-libprolog.c           \
+			  check-libprolog-init.c      \
+			  check-libprolog-predicate.c \
+			  check-libprolog-memleak.c
 check_libprolog_CFLAGS  = -I$(top_builddir)/include \
 			  @PROLOG_CFLAGS@ \
 			  @CHECK_CFLAGS@
