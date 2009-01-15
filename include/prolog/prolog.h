@@ -29,10 +29,18 @@ typedef struct {
 } prolog_predicate_t;
 
 
+typedef struct {
+    void *(*malloc)(size_t, const char *, int, const char *);
+    void *(*realloc)(void *, size_t, const char *, int, const char *);
+    void  (*free)(void *, const char *, int, const char *);
+} prolog_allocator_t;
 
-int  prolog_init(char *argv0, int, int, int, int, char *bootfile);
+
+
+int  prolog_init(char *, int, int, int, int, char *);
 void prolog_exit(void);
 int  prolog_set_helper(const char *path);
+int  prolog_set_allocator(prolog_allocator_t *allocator);
 
 int  prolog_load_extension(char *path);
 int  prolog_load_file     (char *path);
@@ -45,18 +53,17 @@ int prolog_statistics(prolog_predicate_t *pred,
                       int *invocations, double *sys, double *usr, double *avg);
 
 
-int                 prolog_call      (prolog_predicate_t *p, void *ret, ...);
-int                 prolog_acall     (prolog_predicate_t *p, void *retval,
-                                      void **args, int narg);
-int                 prolog_vcall     (prolog_predicate_t *p, void *ret,
-                                      va_list ap);
-#define             prolog_callarr prolog_acall
+int     prolog_call      (prolog_predicate_t *p, void *ret, ...);
+int     prolog_acall     (prolog_predicate_t *p, void *retval,
+                          void **args, int narg);
+int     prolog_vcall     (prolog_predicate_t *p, void *ret,
+                          va_list ap);
+#define prolog_callarr prolog_acall
 
-int                 prolog_trace_set(char *commands);
-void                prolog_trace_show(char *predicate);
+int     prolog_trace_set(char *commands);
+void    prolog_trace_show(char *predicate);
 
-
-void                prolog_free_predicates(prolog_predicate_t *predicates);
+void    prolog_free_predicates(prolog_predicate_t *predicates);
 
 void prolog_free_results(char ***results);
 void prolog_dump_results(char ***results);

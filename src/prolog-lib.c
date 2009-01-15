@@ -42,33 +42,12 @@ static char *pl_argv[] = {
 static char *shlib_path(char *lib, char *buf, size_t size);
 static int   register_predicates (void);
 
-
+prolog_allocator_t __allocator = { NULL, NULL, NULL };
 
 
 /*****************************************************************************
  *                      *** initialization & cleanup ***                     *
  *****************************************************************************/
-
-/********************
- * prolog_set_helper
- ********************/
-PROLOG_API int
-prolog_set_helper(const char *path)
-{
-    struct stat st;
-
-    if (initialized)
-        return EBUSY;
-    
-    strncpy(libprolog_pl, path, sizeof(libprolog_pl));
-    libprolog_pl[sizeof(libprolog_pl) - 1] = '\0';
-
-    if (stat(libprolog_pl, &st) != 0)
-        return errno;
-    else
-        return 0;
-}
-
 
 /*************************
  * prolog_init
@@ -179,6 +158,46 @@ prolog_exit(void)
     
     libprolog_trace_exit();
     initialized = FALSE;
+}
+
+
+/********************
+ * prolog_set_helper
+ ********************/
+PROLOG_API int
+prolog_set_helper(const char *path)
+{
+    struct stat st;
+
+    if (initialized)
+        return EBUSY;
+    
+    strncpy(libprolog_pl, path, sizeof(libprolog_pl));
+    libprolog_pl[sizeof(libprolog_pl) - 1] = '\0';
+
+    if (stat(libprolog_pl, &st) != 0)
+        return errno;
+    else
+        return 0;
+}
+
+
+/********************
+ * prolog_set_allocator
+ ********************/
+PROLOG_API int
+prolog_set_allocator(prolog_allocator_t *allocator)
+{
+    if (initialized)
+        return EBUSY;
+    
+    if ((__allocator.malloc && allocator->malloc != __allocator.malloc) ||
+        (__allocator.realloc && allocator->realloc != __allocator.realloc) ||
+        (__allocator.free && allocator->free != __allocator.free))
+        return EINVAL;
+    
+    memcpy(&__allocator, allocator, sizeof(__allocator));
+    return 0;
 }
 
 
