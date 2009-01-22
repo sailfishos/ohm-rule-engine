@@ -41,3 +41,13 @@ Depends: ${shlibs:Depends}, swi-prolog, prolog-extensions, ohm
 XB-GIT-ID: ${Git-Id}
 Description: A prolog-based OHM rule engine plugin.
  A prolog-based OHM rule engine plugin.
+
+Package: libprolog-dbg
+Priority: extra
+Section: libs
+Architecture: any
+Depends: libprolog0 (= ${binary:Version})
+XB-GIT-ID: ${Git-Id}
+Description: Debug symbols for libprolog0.
+ Debug symbols for libprolog0.
+
