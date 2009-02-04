@@ -53,7 +53,8 @@ START_TEST(non_readable)
     fail_unless(!prolog_load_file(PL_DUMMY_FILE),
                 "prolog_load_file should fail for non-readable files");
 
-    close(fd);
+    if (fd >= 0)                             /* make coverity happy */
+        close(fd);
     unlink(PL_DUMMY_FILE);
 }
 END_TEST
