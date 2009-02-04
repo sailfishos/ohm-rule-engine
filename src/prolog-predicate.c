@@ -58,8 +58,6 @@ collect_exported(term_t pl_descriptor, int i, void *data)
             return EINVAL;
     }
 
-    name = PL_atom_chars(slash_name);
-    
     if ((name = PL_atom_chars(slash_name)) == NULL ||
         (name[0] != '/' || name[1] != '\0' || arity != 2))
         return EINVAL;

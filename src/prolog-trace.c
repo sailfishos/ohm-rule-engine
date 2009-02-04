@@ -279,9 +279,14 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     foreach_t    *fe        = (foreach_t *)data;
     char         *pm, *pn, *pa, *action, *m, *n, *a;
 
+    (void)value;
+
 #define MATCHES(p, s, l, t)                                       \
     ((*(p) == '%' && *(p+1) == '\0') || (!strncmp(p, s, l) && s[l] == t))
 
+    if (predicate == NULL || fe == NULL)
+        return FALSE;
+    
     pm     = fe->module;
     pn     = fe->name;
     pa     = fe->arity;
@@ -317,8 +322,6 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     }
         
     return FALSE;
-
-    (void)value;
 }
 
 
@@ -394,8 +397,8 @@ predicate_trace_show(char *pred, pred_trace_t *pt, void *detailed)
 {
     int on = 0;
     
-    if (pt == NULL)
-        pt = predicate_trace_get(pred);
+    if (pt == NULL && (pt = predicate_trace_get(pred)) == NULL)
+        return;
     
     printf("  predicate %s: ", pred);
     switch (pt->trace) {
@@ -543,6 +546,8 @@ libpl_trace_pred(term_t pl_args, int arity, void *context)
     pred_trace_t  *pt;
     int            flags;
 
+    (void)context;
+
     if (arity != 1 && arity != 2)
         PL_fail;
     
@@ -572,8 +577,10 @@ libpl_trace_pred(term_t pl_args, int arity, void *context)
         case PRED_TRACE_NONE:       state = COMMAND_OFF;        break;
         case PRED_TRACE_SHALLOW:    state = COMMAND_ON;         break;
         case PRED_TRACE_TRANSITIVE: state = COMMAND_TRANSITIVE; break;
+#ifndef LET_COVERITY_BE_UNHAPPY
         case PRED_TRACE_SUPPRESS:   state = COMMAND_SUPPRESS;   break;
         default:                    state = "unknown";          break;
+#endif
         }
         if (PL_unify_atom(pl_args + 1, PL_new_atom(state)))
             PL_succeed;
@@ -582,8 +589,6 @@ libpl_trace_pred(term_t pl_args, int arity, void *context)
     }
         
     PL_fail;
-
-    (void)context;
 }
 
 
@@ -598,6 +603,8 @@ libpl_trace_config(term_t pl_args, int arity, void *context)
     pred_trace_t  *pt;
     char          *pred, *port, *format;
     int            type;
+
+    (void)context;
 
     if (arity != 3)
         PL_fail;
@@ -644,8 +651,6 @@ libpl_trace_config(term_t pl_args, int arity, void *context)
         PL_succeed;
     else
         PL_fail;
-
-    (void)context;
 }
 
 

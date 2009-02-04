@@ -59,6 +59,8 @@ prolog_init(char *argv0,
     char **argv;
     int    argc, status;
 
+    (void)argv0;
+
     if (initialized)
         return EBUSY;
 
@@ -139,8 +141,6 @@ prolog_init(char *argv0,
     
     initialized = TRUE;
     return status;
-    
-    (void)argv0;
 }
 
 

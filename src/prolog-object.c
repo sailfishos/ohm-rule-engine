@@ -23,70 +23,99 @@ collect_object(term_t item, int i, void *data)
     char    *field, *value, *type;
     double  *d;
     size_t   dummy;
+    int      err;
+
+    field = NULL;
+    type  = NULL;
+    value = NULL;
 
     if (i == 0) {
-        if (!PL_get_chars(item, &field, CVT_ALL))
-            return EINVAL;
+        if (!PL_get_chars(item, &value, CVT_ALL)) {
+            err = EINVAL;
+            goto fail;
+        }
         
-        if ((object[0] = STRDUP(OBJECT_NAME)) == NULL ||
-            (object[2] = STRDUP(field)) == NULL)
-            return ENOMEM;
-        object[1] = (char *)'s';
+        field = STRDUP(OBJECT_NAME);
+        type  = (char *)'s';
+        value = STRDUP(value);
     }
     else {
         pl_field = PL_new_term_refs(2);
         pl_value = pl_field + 1;
         
-        if (!PL_get_list(item, pl_field, pl_value))
-            return EINVAL;
-        if (!PL_get_head(pl_value, pl_value))
-            return EINVAL;
-        if (!PL_get_chars(pl_field, &field, CVT_ALL))
-            return EINVAL;
+        if (!PL_get_list(item, pl_field, pl_value) ||
+            !PL_get_head(pl_value, pl_value) ||
+            !PL_get_chars(pl_field, &field, CVT_ALL)) {
+            err = EINVAL;
+            goto fail;
+        }
         
-        if ((field = STRDUP(field)) == NULL)
-            return ENOMEM;
-
+        if ((field = STRDUP(field)) == NULL) {
+            err = ENOMEM;
+            goto fail;
+        }
+        
         switch (PL_term_type(pl_value)) {
         case PL_ATOM:
-            if (!PL_get_atom_chars(pl_value, &value))
-                return EINVAL;
+            type = (char *)'s';
+            if (!PL_get_atom_chars(pl_value, &value)) {
+                err = EINVAL;
+                goto fail;
+            }
             value = STRDUP(value);
-            type  = (char *)'s';
             break;
         case PL_STRING:
-            if (!PL_get_string_chars(pl_value, &value, &dummy))
-                return EINVAL;
+            type = (char *)'s';
+            if (!PL_get_string_chars(pl_value, &value, &dummy)) {
+                err = EINVAL;
+                goto fail;
+            }
             value = STRDUP(value);
-            type  = (char *)'s';
             break;
         case PL_INTEGER:
             /* XXX TODO: change object to void ** to avoid breaking
                gcc's strict aliasing */
-            if (!PL_get_integer(pl_value, (int *)(void *)&value))
-                return EINVAL;
             type = (char *)'i';
+            value = 0;                      /* make coverity happy */
+            if (!PL_get_integer(pl_value, (int *)(void *)&value)) {
+                err = EINVAL;
+                goto fail;
+            }
             break;
         case PL_FLOAT:
-            if (ALLOC_OBJ(d) == NULL)
-                return ENOMEM;
-            if (!PL_get_float(pl_value, d))
-                return EINVAL;
+            type = (char *)'d';
+            if (ALLOC_OBJ(d) == NULL) {
+                err = ENOMEM;
+                goto fail;
+            }
             value = (char *)d;
-            type  = (char *)'d';
+            if (!PL_get_float(pl_value, d)) {
+                err = EINVAL;
+                goto fail;
+            }
             break;
         default:
             PROLOG_ERROR("%s: invalid prolog type (%d) for object field",
                          __FUNCTION__, PL_term_type(pl_value));
-            return EINVAL;
+            err = EINVAL;
+            goto fail;
         }
         
-        object[3*i  ] = field;
-        object[3*i+1] = type;
-        object[3*i+2] = value;
     }
 
+    object[3*i  ] = field;
+    object[3*i+1] = type;
+    object[3*i+2] = value;
+    
     return 0;
+
+ fail:
+    if (field)
+        FREE(field);
+    if (type == (char *)'s' || type == (char *)'d' && value)
+        FREE(value);
+    
+    return err;
 }
     
 
@@ -149,12 +178,12 @@ libprolog_collect_exception(qid_t qid, void *retval)
     
     PL_get_chars(pl_error, &error, CVT_WRITE | BUF_DISCARDABLE);
 
-    if (error && error[0])
-        error = STRDUP(error);
-    else
-        error = STRDUP("unknown prolog exception");
-    
     if ((objects = ALLOC_ARRAY(char **, 1 + 1 + 1)) != NULL) {
+        if (error && error[0])
+            error = STRDUP(error);
+        else
+            error = STRDUP("unknown prolog exception");
+        
         objects[0] = (char **)RESULT_EXCEPTION;
         objects[1] = (char **)error;
         objects[2] = NULL;

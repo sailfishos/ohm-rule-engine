@@ -62,8 +62,9 @@ Sread_shell(void *handle, char *buf, size_t bufsize)
 static int
 Sclose_shell(void *handle)
 {
-    return 0;
     (void)handle;
+
+    return 0;
 }
 
 

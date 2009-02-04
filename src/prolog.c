@@ -195,6 +195,8 @@ prolog_init(char *argv0,
     char **argv;
     int    argc, status;
 
+    (void)argv0;
+    
     if (initialized)
         return EBUSY;
 
@@ -276,8 +278,6 @@ prolog_init(char *argv0,
     
     initialized = TRUE;
     return status;
-
-    (void)argv0;
 }
 
 
@@ -1698,8 +1698,8 @@ Sread_shell(void *handle, char *buf, size_t bufsize)
 static int
 Sclose_shell(void *handle)
 {
-    return 0;
     (void)handle;
+    return 0;
 }
 
 
@@ -2056,6 +2056,8 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     foreach_t    *fe        = (foreach_t *)data;
     char         *pm, *pn, *pa, *action, *m, *n, *a;
 
+    (void)value;
+
 #define MATCHES(p, s, l, t)                                       \
     ((*(p) == '%' && *(p+1) == '\0') || (!strncmp(p, s, l) && s[l] == t))
 
@@ -2094,8 +2096,6 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     }
         
     return FALSE;
-
-    (void)value;
 }
 
 
@@ -2315,6 +2315,8 @@ pl_trace_pred(term_t pl_args, int arity, void *context)
     pred_trace_t  *pt;
     int            flags;
 
+    (void)context;
+
     if (arity != 1 && arity != 2)
         PL_fail;
     
@@ -2354,8 +2356,6 @@ pl_trace_pred(term_t pl_args, int arity, void *context)
     }
         
     PL_fail;
-
-    (void)context;
 }
 
 
@@ -2370,6 +2370,8 @@ pl_trace_config(term_t pl_args, int arity, void *context)
     pred_trace_t  *pt;
     char          *pred, *port, *format;
     int            type;
+
+    (void)context;
 
     if (arity != 3)
         PL_fail;
@@ -2416,8 +2418,6 @@ pl_trace_config(term_t pl_args, int arity, void *context)
         PL_succeed;
     else
         PL_fail;
-
-    (void)context;
 }
 
 
@@ -2433,6 +2433,10 @@ pl_trace_config(term_t pl_args, int arity, void *context)
 static foreign_t
 pl_loading(term_t noargs, int arity, void *context)
 {
+    (void)noargs;
+    (void)arity;
+    (void)context;
+
     if (libprolog_loading < 0) {
         PROLOG_ERROR("MAJOR BUG: libprolog_loading < 0 (%d)...",
                      libprolog_loading);
@@ -2444,10 +2448,6 @@ pl_loading(term_t noargs, int arity, void *context)
     else {
         PL_fail;
     }
-
-    (void)noargs;
-    (void)arity;
-    (void)context;
 }
 
 
@@ -2457,12 +2457,12 @@ pl_loading(term_t noargs, int arity, void *context)
 static foreign_t
 pl_mark_error(term_t noargs, int arity, void *context)
 {
-    MARK_ERROR();
-    PL_succeed;
-
     (void)noargs;
     (void)arity;
     (void)context;
+
+    MARK_ERROR();
+    PL_succeed;
 }
 
 
@@ -2472,12 +2472,12 @@ pl_mark_error(term_t noargs, int arity, void *context)
 static foreign_t
 pl_clear_errors(term_t noargs, int arity, void *context)
 {
-    CLEAR_ERRORS();
-    PL_succeed;
-
     (void)noargs;
     (void)arity;
     (void)context;
+
+    CLEAR_ERRORS();
+    PL_succeed;
 }
 
 
@@ -2487,14 +2487,14 @@ pl_clear_errors(term_t noargs, int arity, void *context)
 static foreign_t
 pl_has_errors(term_t noargs, int arity, void *context)
 {
+    (void)noargs;
+    (void)arity;
+    (void)context;
+
     if (HAS_ERRORS())
         PL_succeed;
     else
         PL_fail;
-
-    (void)noargs;
-    (void)arity;
-    (void)context;
 }
 
 

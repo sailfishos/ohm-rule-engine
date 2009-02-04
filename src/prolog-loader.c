@@ -165,14 +165,14 @@ prolog_load_extension(char *path)
 foreign_t
 libpl_loading(term_t noargs, int arity, void *context)
 {
+    (void)noargs;
+    (void)arity;
+    (void)context;
+
     if (libprolog_loading > 0)
         PL_succeed;
     else
         PL_fail;
-    
-    (void)noargs;
-    (void)arity;
-    (void)context;
 }
 
 
@@ -182,12 +182,12 @@ libpl_loading(term_t noargs, int arity, void *context)
 foreign_t
 libpl_mark_error(term_t noargs, int arity, void *context)
 {
-    libprolog_mark_error();
-    PL_succeed;
-
     (void)noargs;
     (void)arity;
     (void)context;
+
+    libprolog_mark_error();
+    PL_succeed;
 }
 
 
@@ -197,12 +197,11 @@ libpl_mark_error(term_t noargs, int arity, void *context)
 foreign_t
 libpl_clear_errors(term_t noargs, int arity, void *context)
 {
-    libprolog_clear_errors();
-    PL_succeed;
-
     (void)noargs;
     (void)arity;
     (void)context;
+    libprolog_clear_errors();
+    PL_succeed;
 }
 
 
@@ -212,14 +211,14 @@ libpl_clear_errors(term_t noargs, int arity, void *context)
 foreign_t
 libpl_has_errors(term_t noargs, int arity, void *context)
 {
+    (void)noargs;
+    (void)arity;
+    (void)context;
+
     if (libprolog_has_errors())
         PL_succeed;
     else
         PL_fail;
-
-    (void)noargs;
-    (void)arity;
-    (void)context;
 }
 
 
