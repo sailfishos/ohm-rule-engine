@@ -246,7 +246,7 @@ eval_predicate(int flags, prolog_predicate_t *pred, void *retval, term_t args)
     if (!status)
         status = libprolog_collect_exception(qid, retval);
     else
-        status = libprolog_collect_result(qid, pl_retval, retval);
+        status = libprolog_collect_result(pl_retval, retval);
     PL_close_query(qid);
 
     if (status > 0) {

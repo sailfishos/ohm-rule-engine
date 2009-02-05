@@ -48,8 +48,8 @@ get_field_names(context_t *ctx, term_t pl_fields)
 #define MAX_LENGTH 64                           /* max length of a field name */
 
     term_t  pl_list, pl_head;
-    int     i, n, left;
-    size_t  size, dummy;
+    int     i, n, left, size;
+    size_t  dummy;
     char   *p, *field;
     
 
@@ -82,10 +82,10 @@ get_field_names(context_t *ctx, term_t pl_fields)
         }
         ctx->fields[i] = p;
         size = snprintf(p, left, "%s", field);
+        if (size + 1 > left)
+            goto fail;
         p    += size + 1;
         left -= size + 1;
-        if (left < 0)
-            goto fail;
     }
     
     return 0;

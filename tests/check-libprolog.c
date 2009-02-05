@@ -61,6 +61,9 @@ main(int argc, char *argv[])
     srunner_free(srunner);
     
     return nfailed == 0 ? 0 : 1;
+
+    (void)argc;
+    (void)argv;
 }
 
 

@@ -241,6 +241,7 @@ OHM_EXPORTABLE(void, statistics, (char *command))
     prolog_predicate_t *pred;
     char                name[MAX_NAME], *slash;
     int                 arity, n, i;
+    size_t              size;
     double              avg;
 
     if (command == NULL || !command[0] || !strcmp(command, ALL_RULES)) {
@@ -252,16 +253,16 @@ OHM_EXPORTABLE(void, statistics, (char *command))
     }
     else {
         if ((slash = strchr(command, '/')) != NULL) {
-            if ((n = (int)(slash - command)) > sizeof(name) - 1)
-                n = sizeof(name) - 1;
-            strncpy(name, command, n);
-            name[n] = '\0';
+            if ((size = (int)(slash - command)) > (sizeof(name) - 1))
+                size = sizeof(name) - 1;
+            strncpy(name, command, size);
+            name[size] = '\0';
             arity = strtoul(slash + 1, NULL, 10);
         }
         else {
-            n = sizeof(name) - 1;
-            strncpy(name, command, n);
-            name[n] = '\0';
+            size = sizeof(name) - 1;
+            strncpy(name, command, size);
+            name[size] = '\0';
             arity = -1;
         }
         if ((i = find_rule(name, arity)) == NO_RULE)
@@ -360,6 +361,8 @@ discover_predicates(void)
             OHM_ERROR("rule-engine: undefined rule %s:%s/%d",
                      p->module, p->name,p->arity);
         err = ENOENT;
+        prolog_free_predicates(undefined);
+        undefined = NULL;
     }
 
     if (err != 0)

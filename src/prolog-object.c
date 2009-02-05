@@ -112,7 +112,7 @@ collect_object(term_t item, int i, void *data)
  fail:
     if (field)
         FREE(field);
-    if (type == (char *)'s' || type == (char *)'d' && value)
+    if ((type == (char *)'s' || type == (char *)'d') && value)
         FREE(value);
     
     return err;
@@ -199,7 +199,7 @@ libprolog_collect_exception(qid_t qid, void *retval)
  * libprolog_collect_result
  ********************/
 int
-libprolog_collect_result(qid_t qid, term_t pl_retval, void *retval)
+libprolog_collect_result(term_t pl_retval, void *retval)
 {
     char ***objects;
     int     n;
