@@ -134,22 +134,43 @@ else
   PLBIN="$with_prolog"
 fi
 
+# Determine SWI-Prolog configuration (compilation and link flags)
+SWIPL_RUNTIME_VARIABLES="`$PLBIN -dump-runtime-variables | grep -v CC=`"
+eval $SWIPL_RUNTIME_VARIABLES
 
-PLDUMP="$PLBIN -dump-runtime-variables"
-PLDIR=$(eval `$PLDUMP`; echo $PLBASE)
-PLARCH=$(eval `$PLDUMP`; echo $PLARCH)
-PLLIBS=$(eval `$PLDUMP`; echo -L$PLBASE/lib/$PLARCH $PLLIBS)
+SWIPL_HOME=$PLBASE
+SWIPL_CFLAGS="-I$PLBASE/include $PLCFLAGS"
 
-PLCFLAGS=$(eval `$PLDUMP`; echo $PLCFLAGS -I$PLDIR/include)
-PLLDFLAGS=$(eval `$PLDUMP`; echo $PLLDFLAGS)
+# Kludge: we statically link libpl.a into libprolog.so if there is
+# no libpl.so available.
+if test -L $PLBASE/lib/$PLARCH/libpl.so; then
+    SWIPL_LIBS="`echo $PLLIBS | sed 's/-lpl//g'`"
+    SWIPL_LIB="-L$PLBASE/lib/$PLARCH -lpl"
+    SWIPL_STATICLIB=""
+    SWIPL_LDFLAGS="$PLLDFLAGS"
+else
+    SWIPL_LIBS="`echo $PLLIBS | sed 's/-lpl//g'`"
+    SWIPL_LIB=""
+    SWIPL_STATICLIB="$PLBASE/lib/$PLARCH/libpl.a"
+    SWIPL_LDFLAGS="$PLLDFLAGS"
+fi
 
-PROLOG_HOME="$PLDIR"
-PROLOG_CFLAGS="$PLCFLAGS"
-PROLOG_LIBS="$PLLDFLAGS $PLLIBS"
+PROLOG_HOME="$SWIPL_HOME"
+PROLOG_CFLAGS="$SWIPL_CFLAGS"
+PROLOG_LIBS="$SWIPL_LDFLAGS $SWIPL_LIB $SWIPL_LIBS"
+PROLOG_STATICLIB="$SWIPL_STATICLIB"
 
-AC_SUBST(PROLOG_LIBS)
-AC_SUBST(PROLOG_CFLAGS)
+echo "Prolog configuration:"
+echo "     HOME: $PROLOG_HOME"
+echo "   CFLAGS: $PROLOG_CFLAGS"
+echo "     LIBS: $PROLOG_LIBS"
+echo "STATICLIB: $PROLOG_STATICLIB"
+
 AC_SUBST(PROLOG_HOME)
+AC_SUBST(PROLOG_CFLAGS)
+AC_SUBST(PROLOG_LIBS)
+AC_SUBST(PROLOG_STATICLIB)
+
 
 # Generate these files.
 AC_CONFIG_FILES([Makefile
