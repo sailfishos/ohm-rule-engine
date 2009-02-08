@@ -46,6 +46,9 @@ main(int argc, char *argv[])
     Suite *suite;
     int    nfailed;
 
+    (void)argc;
+    (void)argv;
+
     if (prolog_set_helper("../src/libprolog.pl") != 0 &&
         prolog_set_helper("../../src/libprolog.pl") != 0) {
         fprintf(stderr, "Unable to find .../src/libprolog.pl");
@@ -61,9 +64,6 @@ main(int argc, char *argv[])
     srunner_free(srunner);
     
     return nfailed == 0 ? 0 : 1;
-
-    (void)argc;
-    (void)argv;
 }
 
 
