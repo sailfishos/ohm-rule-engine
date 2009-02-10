@@ -5,7 +5,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <sys/syscall.h>                             /* SYS_gettid */
+#include <sys/stat.h>
 #include <sched.h>
 
 #include <glib.h>
@@ -284,16 +284,29 @@ static int
 setup(char **extensions, char **files, int stack)
 {
     int   i;
-    char *p, *boot;
+    char *p, *boot, path[PATH_MAX];
 
     if (busy)
         return EBUSY;
     
     boot = NULL;
     if (files != NULL) {
-        if ((p = strrchr(files[0], '.')) != NULL && !strcmp(p + 1, "plc")) {
-            boot = files[0];
-            files++;
+        if ((p = strrchr(files[0], '.')) != NULL) {
+            if (!strcmp(p + 1, "plc")) {
+                boot = files[0];
+                files++;
+            }
+        }
+        else {
+            struct stat st;
+            
+            path[sizeof(path) - 1] = '\0';
+            snprintf(path, sizeof(path) - 1, "%s.plc", files[0]);
+            if (stat(path, &st) == 0 && S_ISREG(st.st_mode)) {
+                OHM_INFO("rule-engine: using precompiled rules %s...", path);
+                boot = path;
+                files++;
+            }
         }
     }
 
