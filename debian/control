@@ -42,11 +42,11 @@ XB-GIT-ID: ${Git-Id}
 Description: A prolog-based OHM rule engine plugin.
  A prolog-based OHM rule engine plugin.
 
-Package: libprolog-dbg
+Package: libprolog0-dbg
 Priority: extra
-Section: libs
+Section: libdevel
 Architecture: any
-Depends: libprolog (= ${Source:Version})
+Depends: libprolog0 (= ${binary:Version})
 XB-GIT-ID: ${Git-Id}
 Description: Debug symbols for libprolog0.
  Debug symbols for libprolog0.
