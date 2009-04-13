@@ -1,3 +1,9 @@
+libprolog (0.0.13) unstable; urgency=low
+
+  * Log messages using an externally overridable logger.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon, 13 Apr 2009 13:01:55 +0300
+
 libprolog (0.0.12) unstable; urgency=low
 
   * Forced recompile for new ohm logging
