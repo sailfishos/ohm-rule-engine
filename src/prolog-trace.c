@@ -170,14 +170,14 @@ predicate_trace_set(char *pred, char *cmd)
         else if (!strcmp(cmd, COMMAND_ON) || !strcmp(cmd, COMMAND_TRANSITIVE))
             trace_all = TRUE;
         else {
-            printf("Invalid command \"%s %s\".\n", pred, cmd);
+            PROLOG_ERROR("Invalid command \"%s %s\".", pred, cmd);
             return;
         }
     }
     
     if (!strcmp(cmd, COMMAND_CLEAR)) {
         if (!strcmp(pred, PRED_DEFAULT))
-            printf("Cannot delete default predicate trace settings.\n");
+            PROLOG_ERROR("Cannot delete default predicate trace settings.");
         else
             predicate_trace_clear(pred);
         return;
@@ -185,7 +185,7 @@ predicate_trace_set(char *pred, char *cmd)
     
     if ((pt = predicate_trace_get(pred)) == NULL) {
         if (ALLOC_OBJ(pt) == NULL) {
-            printf("Failed to allocate memory for predicate tracing.\n");
+            PROLOG_ERROR("Failed to allocate memory for predicate tracing.");
             return;
         }
         pt->call   = PRED_PORT_DETAILED;
@@ -226,7 +226,7 @@ predicate_trace_set(char *pred, char *cmd)
     
     port = cmd;
     if ((cmd = strchr(port, ' ')) == NULL) {
-        printf("Invalid command \"%s\".\n", port);
+        PROLOG_ERROR("Invalid command \"%s\".", port);
         return;
     }
     *cmd++ = '\0';
@@ -238,7 +238,7 @@ predicate_trace_set(char *pred, char *cmd)
     else if (!strcmp(cmd, COMMAND_SUPPRESS))
         type = PRED_PORT_SUPPRESS;
     else {
-        printf("Invalid command \"%s %s\".\n", port, cmd);
+        PROLOG_ERROR("Invalid command \"%s %s\".", port, cmd);
         return;
     }
 
@@ -263,7 +263,7 @@ predicate_trace_set(char *pred, char *cmd)
         return;
     }
     else {
-        printf("Invalid command \"%s %s\".\n", port, cmd);
+        PROLOG_ERROR("Invalid command \"%s %s\".", port, cmd);
         return;
     }
 }
@@ -314,7 +314,7 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     if (MATCHES(pm, m, strlen(pm), ':') &&
         MATCHES(pn, n, strlen(pn), '/') &&
         MATCHES(pa, a, strlen(pa), '\0')) {
-        printf("  %s %s\n", predicate, action);
+        PROLOG_INFO("  %s %s", predicate, action);
         if (!strcmp(action, COMMAND_CLEAR))
             return TRUE;    /* foreach_remove will remove the entry */
         else
@@ -400,30 +400,30 @@ predicate_trace_show(char *pred, pred_trace_t *pt, void *detailed)
     if (pt == NULL && (pt = predicate_trace_get(pred)) == NULL)
         return;
     
-    printf("  predicate %s: ", pred);
+    PROLOG_INFO("  predicate %s: ", pred);
     switch (pt->trace) {
-    case PRED_TRACE_NONE:       printf("off\n");                     break;
-    case PRED_TRACE_SHALLOW:    printf("on\n"); on = 1;              break;
-    case PRED_TRACE_TRANSITIVE: printf("on (transitive)\n"); on = 1; break;
-    case PRED_TRACE_SUPPRESS:   printf("suppressed\n");              break;
-    default:                    printf("unknown (%d)\n", pt->trace); break;
+    case PRED_TRACE_NONE:       PROLOG_INFO("off");                     break;
+    case PRED_TRACE_SHALLOW:    PROLOG_INFO("on"); on = 1;              break;
+    case PRED_TRACE_TRANSITIVE: PROLOG_INFO("on (transitive)"); on = 1; break;
+    case PRED_TRACE_SUPPRESS:   PROLOG_INFO("suppressed");              break;
+    default:                    PROLOG_INFO("unknown (%d)", pt->trace); break;
     }
 
     if (!on && !detailed)
         return;
     
-    printf("      predicate call: %s\n",
-           pt->call == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->call == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("      predicate redo: %s\n",
-           pt->redo == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->redo == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("    predicate proven: %s\n",
-           pt->proven == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->proven == PRED_PORT_SHORT ? "short" : "detailed"));
-    printf("    predicate failed: %s\n",
-           pt->failed == PRED_PORT_SUPPRESS ? "suppress" :
-           (pt->failed == PRED_PORT_SHORT ? "short" : "detailed"));
+    PROLOG_INFO("      predicate call: %s",
+                pt->call == PRED_PORT_SUPPRESS ? "suppress" :
+                (pt->call == PRED_PORT_SHORT ? "short" : "detailed"));
+    PROLOG_INFO("      predicate redo: %s",
+                pt->redo == PRED_PORT_SUPPRESS ? "suppress" :
+                (pt->redo == PRED_PORT_SHORT ? "short" : "detailed"));
+    PROLOG_INFO("    predicate proven: %s",
+                pt->proven == PRED_PORT_SUPPRESS ? "suppress" :
+                (pt->proven == PRED_PORT_SHORT ? "short" : "detailed"));
+    PROLOG_INFO("    predicate failed: %s",
+                pt->failed == PRED_PORT_SUPPRESS ? "suppress" :
+                (pt->failed == PRED_PORT_SHORT ? "short" : "detailed"));
 }
 
 
@@ -454,15 +454,15 @@ prolog_trace_set(char *commands)
 
         if (!strcmp(command, COMMAND_ENABLE)) {
             trace_enabled = TRUE;
-            printf("rule/predicate tracing enabled\n");
+            PROLOG_INFO("rule/predicate tracing enabled");
         }
         else if (!strcmp(command, COMMAND_DISABLE)) {
             trace_enabled = FALSE;
-            printf("rule/predicate tracing disabled\n");
+            PROLOG_INFO("rule/predicate tracing disabled");
         }
         else if (!strcmp(command, COMMAND_RESET)) {
             predicate_trace_reset();
-            printf("rule/predicate tracing reset\n");
+            PROLOG_INFO("rule/predicate tracing reset");
         }
         else if (!strcmp(command, COMMAND_SHOW)) {
             prolog_trace_show(NULL);
@@ -490,11 +490,11 @@ prolog_trace_set(char *commands)
                 while (*a == ' ' || *a == '\t')
                     a++;
                 if (HAS_WILDCARDS(predicate)) {
-                    printf("  %s predicates matching %s\n", a, predicate);
+                    PROLOG_INFO("  %s predicates matching %s", a, predicate);
                     predicate_trace_set_matching(predicate, a);
                 }
                 else {
-                    printf("  %s predicate %s\n", a, predicate);
+                    PROLOG_INFO("  %s predicate %s", a, predicate);
                     predicate_trace_set(predicate, a);
                 }
                 
@@ -518,11 +518,11 @@ prolog_trace_show(char *predicate)
         return;
     
     if (!predicate || !*predicate || !strcmp(predicate, WILDCARD_ALL)) {
-        printf("Rule/predicate trace settings:\n");
-        printf("  tracing %s\n", trace_enabled ? "enabled" : "disabled");
-        printf("  forced tracing of all predicates %s\n",
-               trace_all ? "on" : "off");
-        printf("  trace indentation %d / level\n", trace_indent);
+        PROLOG_INFO("Rule/predicate trace settings:");
+        PROLOG_INFO("  tracing %s", trace_enabled ? "enabled" : "disabled");
+        PROLOG_INFO("  forced tracing of all predicates %s",
+                    trace_all ? "on" : "off");
+        PROLOG_INFO("  trace indentation %d / level", trace_indent);
         g_hash_table_foreach(trace_flags,
                              (GHFunc)predicate_trace_show, NULL);
     }

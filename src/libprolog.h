@@ -82,17 +82,12 @@ enum {
  * macros for emitting messages from within the library
  */
 
-#define PROLOG_ERROR(fmt, args...) do {                 \
-        fprintf(stderr, "[ERROR] "fmt"\n", ## args);    \
-    } while (0)
-
-#define PROLOG_WARNING(fmt, args...) do {               \
-        fprintf(stderr, "[WARNING] "fmt"\n", ## args);  \
-    } while (0)
-
-#define PROLOG_INFO(fmt, args...) do {                  \
-        fprintf(stdout, "[INFO] "fmt"\n", ## args);	\
-    } while (0)
+#define PROLOG_ERROR(fmt, args...)   \
+    prolog_log(PROLOG_LOG_ERROR, fmt"\n" , ## args)
+#define PROLOG_WARNING(fmt, args...) \
+    prolog_log(PROLOG_LOG_WARNING, fmt"\n" , ## args)
+#define PROLOG_INFO(fmt, args...)    \
+    prolog_log(PROLOG_LOG_INFO, fmt"\n" , ## args)
 
 
 
@@ -167,6 +162,10 @@ int    swi_list_walk(term_t list,
 		     void *data);
 
 int swi_set_trace(int state);
+
+
+/* prolog-log.c */
+void prolog_log(prolog_log_level_t level, const char *format, ...);
 
 
 

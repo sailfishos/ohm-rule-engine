@@ -12,7 +12,8 @@ libprolog_la_CFLAGS  = $(INCLUDES) $(DEFINES) \
                        @GLIB_CFLAGS@
 libprolog_la_SOURCES = prolog-lib.c \
                        prolog-shell.c prolog-trace.c prolog-loader.c \
-                       prolog-predicate.c prolog-object.c prolog-utils.c
+                       prolog-predicate.c prolog-object.c prolog-utils.c \
+		       prolog-log.c
 libprolog_la_LDFLAGS = @PROLOG_LIBS@ @GLIB_LIBS@ @PROLOG_STATICLIB@
 
 #                       -version-info @LT_CURRENT@:@LT_REVISION@:@LT_AGE@

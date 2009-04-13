@@ -54,6 +54,27 @@ OHM_IMPORTABLE(int, prio_relax, (void));
  *                       *** initialization & cleanup ***                    *
  *****************************************************************************/
 
+/********************
+ * logger
+ ********************/
+static void
+logger(prolog_log_level_t level, const char *format, va_list ap)
+{
+    OhmLogLevel l;
+
+    switch (level) {
+    case PROLOG_LOG_FATAL:    
+    case PROLOG_LOG_ERROR:   l = OHM_LOG_ERROR;   break;
+    case PROLOG_LOG_WARNING: l = OHM_LOG_WARNING; break;
+    case PROLOG_LOG_NOTICE:
+    case PROLOG_LOG_INFO:    l = OHM_LOG_INFO;    break;
+    default:                                    return;
+    }
+
+    ohm_logv(l, format, ap);
+}
+
+
 /**
  * plugin_init:
  **/
@@ -70,7 +91,7 @@ plugin_init(OhmPlugin *plugin)
     int    stack;
     char *boost_sig, *relax_sig;
     
-    
+    prolog_set_logger(logger);
     
     if (!OHM_DEBUG_INIT(rule_engine))
         OHM_WARNING("rule engine failed to initialize debugging");

@@ -6,6 +6,11 @@
 #include <SWI-Stream.h>
 #include <SWI-Prolog.h>
 
+
+/*
+ * prolog interpreter configuration
+ */
+
 typedef struct {
     char  *argv0;
     char  *ruleset;
@@ -16,6 +21,10 @@ typedef struct {
     int    argument_stack;
 } prolog_config_t;
 
+
+/*
+ * an 'exported' prolog predicate
+ */
 
 typedef struct {
     char           *module;                  /* module name */
@@ -29,12 +38,28 @@ typedef struct {
 } prolog_predicate_t;
 
 
+/*
+ * overridable memory allocator entry points
+ */
+
 typedef struct {
     void *(*malloc)(size_t, const char *, int, const char *);
     void *(*realloc)(void *, size_t, const char *, int, const char *);
     void  (*free)(void *, const char *, int, const char *);
 } prolog_allocator_t;
 
+
+/*
+ * logging
+ */
+
+typedef enum {
+    PROLOG_LOG_FATAL   = 0,
+    PROLOG_LOG_ERROR   = 1,
+    PROLOG_LOG_WARNING = 2,
+    PROLOG_LOG_NOTICE  = 3,
+    PROLOG_LOG_INFO    = 4,
+} prolog_log_level_t;
 
 
 int  prolog_init(char *, int, int, int, int, char *);
