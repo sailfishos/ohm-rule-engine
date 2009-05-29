@@ -263,14 +263,17 @@ OHM_EXPORTABLE(void, statistics, (char *command))
     char                name[MAX_NAME], *slash;
     int                 arity, n, i;
     size_t              size;
-    double              avg;
+    double              sys, usr, avg, total;
 
     if (command == NULL || !command[0] || !strcmp(command, ALL_RULES)) {
+        total = 0.0;
         for (pred = predicates; pred->name; pred++) {
-            prolog_statistics(pred, &n, NULL, NULL, &avg);
-            OHM_INFO("%s/%d: %d calls, average speed: %.3f msec/call",
-                     pred->name, pred->arity, n, avg);
+            prolog_statistics(pred, &n, &sys, &usr, &avg);
+            OHM_INFO("%s/%d: %d calls, %.3f ms avg, %.2f total (%.2fu, %.2fs)",
+                     pred->name, pred->arity, n, avg, usr+sys, usr, sys);
+            total += usr+sys;
         }
+        OHM_INFO("grand total: %.2f ms", total);
     }
     else {
         if ((slash = strchr(command, '/')) != NULL) {
