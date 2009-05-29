@@ -231,7 +231,8 @@ pl_fact_exists(term_t pl_name,
         if (!PL_is_list(pl_fields) || /*!PL_is_list(pl_list) ||*/
             !PL_get_chars(pl_name, &name, CVT_ALL))
             PL_fail;
-        strcpy(factname, name);
+        strncpy(factname, name, sizeof(factname));
+        factname[sizeof(factname)-1] = '\0';
 
         if ((ctx = malloc(sizeof(*ctx))) == NULL)
             PL_fail;
