@@ -298,9 +298,6 @@ trace_set_matching(gpointer key, gpointer value, gpointer data)
     if ((a = strchr(n, '/')) == NULL)
         a = "/";
     
-    if (m == NULL || n == NULL || a == NULL)
-        return FALSE;
-    
     n++;
     a++;
 
@@ -577,7 +574,7 @@ libpl_trace_pred(term_t pl_args, int arity, void *context)
         case PRED_TRACE_NONE:       state = COMMAND_OFF;        break;
         case PRED_TRACE_SHALLOW:    state = COMMAND_ON;         break;
         case PRED_TRACE_TRANSITIVE: state = COMMAND_TRANSITIVE; break;
-#ifndef LET_COVERITY_BE_UNHAPPY
+#ifdef LET_COVERITY_BE_UNHAPPY
         case PRED_TRACE_SUPPRESS:   state = COMMAND_SUPPRESS;   break;
         default:                    state = "unknown";          break;
 #endif
