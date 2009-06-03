@@ -67,6 +67,9 @@ void prolog_exit(void);
 int  prolog_set_helper(const char *path);
 int  prolog_set_allocator(prolog_allocator_t *allocator);
 
+void prolog_set_logger(void (*app_logger)(prolog_log_level_t, const char *,
+                                          va_list));
+
 int  prolog_load_extension(char *path);
 int  prolog_load_file     (char *path);
 

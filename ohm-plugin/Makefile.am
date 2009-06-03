@@ -4,7 +4,7 @@ EXTRA_DIST         = $(config_DATA)
 configdir          = $(sysconfdir)/ohm/plugins.d
 config_DATA        = rule_engine.ini
 
-noinst_PROGRAMS    = test
+noinst_PROGRAMS    = #test
 
 test_CFLAGS  = @PROLOG_CFLAGS@ \
 	        -DDEFAULT_PROLOG_DIR=\"${pkglibdir}/prolog\"
