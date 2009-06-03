@@ -90,6 +90,7 @@ plugin_init(OhmPlugin *plugin)
     char **rules;
     int    stack;
     char *boost_sig, *relax_sig;
+    void *boostptr, *relaxptr;
     
     prolog_set_logger(logger);
     
@@ -121,8 +122,10 @@ plugin_init(OhmPlugin *plugin)
     
     boost_sig = (char *)prio_boost_SIGNATURE;
     relax_sig = (char *)prio_relax_SIGNATURE;
-    ohm_module_find_method("prio_boost", &boost_sig, (void **)&prio_boost);
-    ohm_module_find_method("prio_relax", &boost_sig, (void **)&prio_relax);
+    ohm_module_find_method("prio_boost", &boost_sig, &boostptr);
+    ohm_module_find_method("prio_relax", &boost_sig, &relaxptr);
+    prio_boost = (int (*)(void))boostptr;
+    prio_relax = (int (*)(void))relaxptr;
     
     if (prio_boost || prio_relax) {
         if (prio_boost == NULL || prio_relax == NULL) {
