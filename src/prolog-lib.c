@@ -156,6 +156,8 @@ prolog_exit(void)
     if (PL_is_initialised(NULL, NULL))
         PL_cleanup(0);
     
+    libprolog_free_predicates();
+
     libprolog_trace_exit();
     initialized = FALSE;
 }

@@ -11,6 +11,10 @@
 #include "libprolog.h"
 
 
+static prolog_predicate_t *lib_predicates = NULL;
+static prolog_predicate_t *lib_undefined  = NULL;
+
+
 /********************
  * collect_exported
  ********************/
@@ -102,6 +106,31 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
 
     if (rules == NULL || undef == NULL)
         return EINVAL;
+
+
+    /*
+     * Notes:
+     *
+     *     With the original prolog_{rules,*call,statistics,free_predicates}
+     *     semantics it was not possible to discover predicates more than once
+     *     and get reasonable statistics. Statistics were collected on a per
+     *     prolog_predicate_t array basis. This made it difficult to query
+     *     statistics without running the predicate evaluation. To work around
+     *     this limitation without breaking the API we now cache the result
+     *     of predicate lookup internally. As a side-effect of this freeing
+     *     the predicates happens now also internally during library cleanup.
+     *     Hence prolog_free_predicates is a no-op when called from outside
+     *     the library.
+     */
+
+
+    /* return the cached result if we have any */
+    if (lib_predicates != NULL || lib_undefined != NULL) {
+        *rules = lib_predicates;
+        *undef = lib_undefined;
+
+        return 0;
+    }
     
     *rules = NULL;
     *undef = NULL;
@@ -136,6 +165,13 @@ prolog_rules(prolog_predicate_t **rules, prolog_predicate_t **undef)
     }
     
     PL_discard_foreign_frame(frame);
+
+
+    /* cache the result of the lookup internally */
+    if (lib_predicates == NULL)
+        lib_predicates = *rules;
+    if (lib_undefined == NULL)
+        lib_undefined = *undef;
     
     return 0;
 
@@ -161,12 +197,33 @@ prolog_free_predicates(prolog_predicate_t *predicates)
     if (predicates == NULL)
         return;
     
+    /* don't free cached results */
+    if (predicates == lib_predicates || predicates == lib_undefined)
+        return;
+
     for (p = predicates; p->name != NULL; p++) {
         FREE(p->module);
         FREE(p->name);
     }
 
     FREE(predicates);
+}
+
+
+/********************
+ * libprolog_free_predicates
+ ********************/
+void
+libprolog_free_predicates(void)
+{
+    prolog_predicate_t *predicates = lib_predicates;
+    prolog_predicate_t *undefined  = lib_undefined;
+
+    lib_predicates = NULL;
+    lib_undefined  = NULL;
+    
+    prolog_free_predicates(predicates);
+    prolog_free_predicates(undefined);
 }
 
 

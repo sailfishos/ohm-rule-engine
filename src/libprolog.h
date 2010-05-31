@@ -147,6 +147,8 @@ foreign_t libpl_mark_error(term_t noargs, int arity, void *context);
 foreign_t libpl_clear_errors(term_t noargs, int arity, void *context);
 foreign_t libpl_has_errors(term_t noargs, int arity, void *context);
 
+/* prolog-predicate.c */
+void libprolog_free_predicates(void);
 
 /* prolog-object.c */
 int libprolog_collect_result(term_t pl_retval, void *retval);
