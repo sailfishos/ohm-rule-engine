@@ -13,7 +13,7 @@ Version:    1.1.10
 Release:    1
 Group:      System/Resource Policy
 License:    LGPLv2.1
-URL:        http://meego.gitorious.org/maemo-multimedia/prolog
+URL:        https://github.com/nemomobile/ohm-rule-engine
 Source0:    %{name}-%{version}.tar.gz
 Source100:  ohm-plugin-ruleengine.yaml
 Requires:   swi-prolog-library-core
