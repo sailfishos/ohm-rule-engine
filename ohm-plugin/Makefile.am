@@ -12,10 +12,9 @@ config_DATA        = rule_engine.ini
 #test_LDADD   = @PROLOG_LIBS@ ../src/libprolog.la
 
 libohm_rule_engine_la_SOURCES = rule-engine.c
-libohm_rule_engine_la_CFLAGS  = @OHM_PLUGIN_CFLAGS@ @PROLOG_CFLAGS@ \
+libohm_rule_engine_la_CFLAGS  = @OHM_PLUGIN_CFLAGS@ @PROLOG_CFLAGS@ @LIBPROLOG_CFLAGS@ \
 			        -DDEFAULT_PROLOG_DIR=\"${pkglibdir}/prolog\"
-libohm_rule_engine_la_LIBADD  = @OHM_PLUGIN_LIBS@ @PROLOG_LIBS@ \
-                                ../src/libprolog.la
+libohm_rule_engine_la_LIBADD  = @OHM_PLUGIN_LIBS@ @PROLOG_LIBS@ @LIBPROLOG_LIBS@
 libohm_rule_engine_la_LDFLAGS = -module -avoid-version
 
 INCLUDES = -I$(top_builddir)/include
