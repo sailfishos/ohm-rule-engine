@@ -7,13 +7,13 @@ AC_INIT([prolog],
 	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
 	[multimedia at maemo.org])
 
-AC_CONFIG_SRCDIR(src)
+AC_CONFIG_SRCDIR(ohm-plugin)
 AC_CONFIG_MACRO_DIR([m4])
 
 DOC_SUPPORT_INIT
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
-AC_CONFIG_HEADER([src/config.h])
+AC_CONFIG_HEADER([config.h])
 
 AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
 
@@ -149,12 +149,8 @@ SHAVE_INIT([build-aux], [enable])
 AC_CONFIG_FILES([build-aux/shave
                  build-aux/shave-libtool
                  Makefile
-                 src/Makefile
-		 libprolog.pc
-		 include/Makefile
 		 extensions/Makefile
 		 ohm-plugin/Makefile
-		 tests/Makefile
 		 doc/Makefile])
 AC_OUTPUT
 
@@ -164,6 +160,4 @@ echo "       BASE: $PROLOG_BASE"
 echo "     CFLAGS: $PROLOG_CFLAGS"
 echo "       LIBS: $PROLOG_LIBS"
 echo "  STATICLIB: $PROLOG_STATICLIB"
-echo "Libprolog version: $VERSION"
-echo "      API version: ${LIBPROLOG_VERSION_INFO//:/.}"
 

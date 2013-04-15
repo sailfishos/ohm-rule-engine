@@ -1,12 +1,9 @@
 EXTRA_DIST = autogen.sh build-aux/git-version-gen
-SUBDIRS    = src include extensions ohm-plugin tests
+SUBDIRS    = extensions ohm-plugin
 
 if PD_SUPPORT
 SUBDIRS += doc
 endif
-
-pkgconfigdir   = ${libdir}/pkgconfig
-pkgconfig_DATA = libprolog.pc
 
 MAINTAINERCLEANFILES = Makefile.in
 
