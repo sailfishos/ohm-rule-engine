@@ -1,0 +1,36 @@
+Name: ohm-plugin-ruleengine
+Summary: A prolog-based OHM rule engine plugin
+Version: 1.1.10
+Release: 1
+Group: System/Resource Policy
+License: LGPLv2.1
+URL: http://meego.gitorious.org/maemo-multimedia/prolog
+Sources:
+    - "%{name}-%{version}.tar.gz"
+Description: |
+    A prolog-based OHM rule engine plugin.
+
+PkgConfigBR:
+    - libprolog >= 1.1.10
+    - ohm
+    - glib-2.0
+    - dbus-glib-1
+    - swi-prolog
+Requires:
+    - swi-prolog-library-core
+    - ohm
+    - prolog-resourcepolicy-extensions
+Configure: autogen
+ConfigOptions:
+    - --enable-extra-warnings
+Builder: make
+
+SubPackages:
+    - Name: prolog-resourcepolicy-extensions
+      AsWholeName: yes
+      Summary: Prolog extensions for the resource policy framework
+      Group: System/Resource Policy
+      Description: |
+          A set of prolog extensions needed by the resource policy framework
+          (and/or its prototype implementation).
+
