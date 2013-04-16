@@ -58,6 +58,9 @@ scriptversion=2008-04-08.07
 #         m4_esyscmd([build-aux/git-version-gen .tarball-version]),
 #         [bug-project@example])
 #
+# Note: --tags flag can be added for git-version-gen to use lightweight
+#       (non-annotated) tags for version.
+#
 # Then use the following lines in your Makefile.am, so that .version
 # will be present for dependencies, and so that .tarball-version will
 # exist in distribution tarballs.
@@ -68,9 +71,16 @@ scriptversion=2008-04-08.07
 # dist-hook:
 #	echo $(VERSION) > $(distdir)/.tarball-version
 
+tags=""
+
+print_usage() {
+    echo 1>&2 "Usage: $0 (--tags) \$srcdir/.tarball-version\n\n    --tags  Use lightweight (non-annotated) tags."
+}
+
 case $# in
     1) ;;
-    *) echo 1>&2 "Usage: $0 \$srcdir/.tarball-version"; exit 1;;
+    2) if test "$1" = "--tags"; then tags="1"; shift; else print_usage; exit 1; fi ;;
+    *) print_usage; exit 1;;
 esac
 
 tarball_version_file=$1
@@ -94,6 +104,10 @@ fi
 if test -n "$v"
 then
     : # use $v
+elif test -n "$tags"
+then
+    # Use latest non-annotated tag
+    v=`git describe --tags HEAD 2>/dev/null`
 elif test -d .git \
     && v=`git describe --abbrev=4 --match='v*' HEAD 2>/dev/null \
 	  || git describe --abbrev=4 HEAD 2>/dev/null` \
