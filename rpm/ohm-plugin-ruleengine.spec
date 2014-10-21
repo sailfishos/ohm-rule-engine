@@ -36,6 +36,7 @@ A set of prolog extensions needed by the resource policy framework
 
 
 %build
+echo -n "%{version}" > .tarball-version
 %autogen --disable-static
 %configure --disable-static \
     --enable-extra-warnings
