@@ -137,10 +137,9 @@ else
     AC_MSG_RESULT(no)
 fi
 
-PKG_CHECK_MODULES(PROLOG, swi-prolog)
-PROLOG_BASE="`pkg-config --variable=base swi-prolog`"
+PKG_CHECK_MODULES(PROLOG, swipl >= 7.0)
+PROLOG_BASE="`pkg-config --variable=base swipl`"
 PROLOG_STATICLIB=""
-#PROLOG_STATICLIB="`pkg-config --variable=staticlib swi-prolog`"
 
 AC_SUBST(PROLOG_BASE)
 AC_SUBST(PROLOG_CFLAGS)
