@@ -99,7 +99,7 @@ AC_SUBST(DBUS_CFLAGS)
 AC_SUBST(DBUS_LIBS)
 
 # Checks for libprolog.
-PKG_CHECK_MODULES(LIBPROLOG, libprolog >= 1.1.10)
+PKG_CHECK_MODULES(LIBPROLOG, libprolog >= 1.2.0)
 AC_SUBST(LIBPROLOG_CFLAGS)
 AC_SUBST(LIBPROLOG_LIBS)
 
@@ -137,10 +137,9 @@ else
     AC_MSG_RESULT(no)
 fi
 
-PKG_CHECK_MODULES(PROLOG, swi-prolog)
-PROLOG_BASE="`pkg-config --variable=base swi-prolog`"
+PKG_CHECK_MODULES(PROLOG, swipl >= 7.0)
+PROLOG_BASE="`pkg-config --variable=base swipl`"
 PROLOG_STATICLIB=""
-#PROLOG_STATICLIB="`pkg-config --variable=staticlib swi-prolog`"
 
 AC_SUBST(PROLOG_BASE)
 AC_SUBST(PROLOG_CFLAGS)

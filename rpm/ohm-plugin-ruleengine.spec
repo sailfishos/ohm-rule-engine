@@ -1,20 +1,20 @@
 Name:       ohm-plugin-ruleengine
 
 Summary:    A prolog-based OHM rule engine plugin
-Version:    1.1.10
+Version:    1.1.11
 Release:    1
 Group:      System/Resource Policy
-License:    LGPLv2.1
-URL:        https://github.com/nemomobile/ohm-rule-engine
+License:    LGPLv2+
+URL:        https://git.merproject.org/mer-core/ohm-rule-engine
 Source0:    %{name}-%{version}.tar.gz
-Requires:   swi-prolog-library-core
+Requires:   swi-prolog-library-core >= 7.0
 Requires:   ohm
 Requires:   prolog-resourcepolicy-extensions
-BuildRequires:  pkgconfig(libprolog) >= 1.1.10
+BuildRequires:  pkgconfig(libprolog) >= 1.2.0
 BuildRequires:  pkgconfig(ohm)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(dbus-glib-1)
-BuildRequires:  pkgconfig(swi-prolog)
+BuildRequires:  pkgconfig(swipl) >= 7.0
 
 %description
 A prolog-based OHM rule engine plugin.
