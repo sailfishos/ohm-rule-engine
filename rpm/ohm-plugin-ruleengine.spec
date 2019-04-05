@@ -11,9 +11,8 @@ Requires:   swi-prolog-library-core >= 7.0
 Requires:   ohm
 Requires:   prolog-resourcepolicy-extensions
 BuildRequires:  pkgconfig(libprolog) >= 1.2.0
-BuildRequires:  pkgconfig(ohm)
+BuildRequires:  pkgconfig(libohmplugin) >= 1.2.0
 BuildRequires:  pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(dbus-glib-1)
 BuildRequires:  pkgconfig(swipl) >= 7.0
 
 %description
