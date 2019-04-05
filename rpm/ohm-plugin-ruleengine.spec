@@ -1,7 +1,7 @@
 Name:       ohm-plugin-ruleengine
 
 Summary:    A prolog-based OHM rule engine plugin
-Version:    1.1.11
+Version:    1.1.12
 Release:    1
 Group:      System/Resource Policy
 License:    LGPLv2+
