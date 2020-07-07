@@ -1,4 +1,4 @@
 # rules and extensions to be loaded
 rules      = /usr/share/policy/rules/current/policy
-extensions = /usr/lib/prolog/extensions/fact
+extensions = %libdir%/prolog/extensions/fact
 stacksize  = 512

@@ -3,13 +3,14 @@ Name:       ohm-plugin-ruleengine
 Summary:    A prolog-based OHM rule engine plugin
 Version:    1.1.12
 Release:    1
-Group:      System/Resource Policy
 License:    LGPLv2+
-URL:        https://git.merproject.org/mer-core/ohm-rule-engine
+URL:        https://git.sailfishos.org/mer-core/ohm-rule-engine
 Source0:    %{name}-%{version}.tar.gz
 Requires:   swi-prolog-library-core >= 7.0
 Requires:   ohm
 Requires:   prolog-resourcepolicy-extensions
+BuildRequires:  automake
+BuildRequires:  make
 BuildRequires:  pkgconfig(libprolog) >= 1.2.0
 BuildRequires:  pkgconfig(libohmplugin) >= 1.2.0
 BuildRequires:  pkgconfig(glib-2.0)
@@ -21,7 +22,6 @@ A prolog-based OHM rule engine plugin.
 
 %package -n prolog-resourcepolicy-extensions
 Summary:    Prolog extensions for the resource policy framework
-Group:      System/Resource Policy
 Requires:   %{name} = %{version}-%{release}
 
 %description -n prolog-resourcepolicy-extensions
@@ -31,7 +31,7 @@ A set of prolog extensions needed by the resource policy framework
 
 
 %prep
-%setup -q -n %{name}-%{version}
+%autosetup -n %{name}-%{version}
 
 
 %build
@@ -40,7 +40,7 @@ echo -n "%{version}" > .tarball-version
 %configure --disable-static \
     --enable-extra-warnings
 
-make %{?jobs:-j%jobs}
+%make_build
 
 
 %install
