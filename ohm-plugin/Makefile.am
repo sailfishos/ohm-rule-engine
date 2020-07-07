@@ -1,8 +1,13 @@
 pkglib_LTLIBRARIES = libohm_rule_engine.la
 pkglibdir          = @OHM_PLUGIN_DIR@
-EXTRA_DIST         = $(config_DATA)
+EXTRA_DIST         = rule_engine.ini.in
 configdir          = $(sysconfdir)/ohm/plugins.d
 config_DATA        = rule_engine.ini
+CLEANFILES         = $(config_DATA)
+
+%.ini: %.ini.in
+	$(SED)  -e 's@%libdir%@$(libdir)@g' \
+	"$<" > "$@"
 
 #noinst_PROGRAMS    = test
 #
