@@ -46,7 +46,7 @@ echo -n "%{version}" > .tarball-version
 %install
 rm -rf %{buildroot}
 %make_install
-
+rm -f %{buildroot}/%{_libdir}/ohm/*.la
 
 %files
 %defattr(-,root,root,-)
