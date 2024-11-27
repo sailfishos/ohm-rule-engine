@@ -4,7 +4,7 @@ Summary:    A prolog-based OHM rule engine plugin
 Version:    1.1.13
 Release:    1
 License:    LGPLv2+
-URL:        https://git.sailfishos.org/mer-core/ohm-rule-engine
+URL:        https://github.com/sailfishos/ohm-rule-engine
 Source0:    %{name}-%{version}.tar.gz
 Requires:   swi-prolog-library-core >= 7.0
 Requires:   ohm
@@ -44,17 +44,14 @@ echo -n "%{version}" > .tarball-version
 
 
 %install
-rm -rf %{buildroot}
 %make_install
-rm -f %{buildroot}/%{_libdir}/ohm/*.la
 
 %files
-%defattr(-,root,root,-)
+%license COPYING
 %{_libdir}/ohm/libohm_rule_engine.so
 %config %{_sysconfdir}/ohm/plugins.d/rule_engine.ini
 
 %files -n prolog-resourcepolicy-extensions
-%defattr(-,root,root,-)
 %dir %{_libdir}/prolog
 %dir %{_libdir}/prolog/extensions
 %{_libdir}/prolog/extensions/*
