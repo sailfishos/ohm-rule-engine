@@ -314,7 +314,7 @@ install_t
 install(void)
 {
     PL_register_foreign("fact_exists",
-                        3, pl_fact_exists, PL_FA_NONDETERMINISTIC);
+                        3, (void *)pl_fact_exists, PL_FA_NONDETERMINISTIC);
 }
 
 /* 
