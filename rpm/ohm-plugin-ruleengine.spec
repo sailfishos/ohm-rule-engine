@@ -1,7 +1,7 @@
 Name:       ohm-plugin-ruleengine
 
 Summary:    A prolog-based OHM rule engine plugin
-Version:    1.1.13
+Version:    1.1.16
 Release:    1
 License:    LGPLv2+
 URL:        https://github.com/sailfishos/ohm-rule-engine
